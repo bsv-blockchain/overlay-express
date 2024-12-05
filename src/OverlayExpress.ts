@@ -6,6 +6,8 @@ import Knex from 'knex'
 import { MongoClient, Db } from 'mongodb'
 import makeUserInterface, { type UIConfig } from './makeUserInterface.js'
 import * as DiscoveryServices from '@bsv/overlay-discovery-services'
+import chalk from 'chalk'
+import util from 'util'
 
 /**
  * Knex database migration.
@@ -114,7 +116,7 @@ export default class OverlayExpress {
     public hostingURL: string
   ) {
     this.app = express()
-    this.logger.log(`${name} constructed`)
+    this.logger.log(chalk.green.bold(`${name} constructed 🎉`))
   }
 
   /**
@@ -123,7 +125,7 @@ export default class OverlayExpress {
    */
   configurePort(port: number) {
     this.port = port
-    this.logger.log(`Server port set to ${port}`)
+    this.logger.log(chalk.blue(`🌐 Server port set to ${port}`))
   }
 
   /**
@@ -132,7 +134,7 @@ export default class OverlayExpress {
    */
   configureWebUI(config: UIConfig) {
     this.webUIConfig = config
-    this.logger.log('Web UI has been configured.')
+    this.logger.log(chalk.blue('🖥️ Web UI has been configured.'))
   }
 
   /**
@@ -141,7 +143,7 @@ export default class OverlayExpress {
    */
   configureLogger(logger: typeof console) {
     this.logger = logger
-    this.logger.log('Logger has been configured.')
+    this.logger.log(chalk.blue('🔍 Logger has been configured.'))
   }
 
   /**
@@ -151,7 +153,7 @@ export default class OverlayExpress {
   configureNetwork(network: 'main' | 'test') {
     this.network = network
     this.chainTracker = new WhatsOnChain(this.network)
-    this.logger.log(`Network set to ${network}`)
+    this.logger.log(chalk.blue(`🔗 Network set to ${network}`))
   }
 
   /**
@@ -160,7 +162,7 @@ export default class OverlayExpress {
    */
   configureChainTracker(chainTracker: ChainTracker = new WhatsOnChain(this.network)) {
     this.chainTracker = chainTracker
-    this.logger.log('ChainTracker has been configured.')
+    this.logger.log(chalk.blue('🔗 ChainTracker has been configured.'))
   }
 
   /**
@@ -169,7 +171,7 @@ export default class OverlayExpress {
    */
   configureArcApiKey(apiKey: string) {
     this.arcApiKey = apiKey
-    this.logger.log('ARC API key has been configured.')
+    this.logger.log(chalk.blue('🔑 ARC API key has been configured.'))
   }
 
   /**
@@ -178,7 +180,7 @@ export default class OverlayExpress {
    */
   configureEnableGASPSync(enable: boolean) {
     this.enableGASPSync = enable
-    this.logger.log(`GASP synchronization ${enable ? 'enabled' : 'disabled'}.`)
+    this.logger.log(chalk.blue(`🔄 GASP synchronization ${enable ? 'enabled' : 'disabled'}.`))
   }
 
   /**
@@ -187,7 +189,7 @@ export default class OverlayExpress {
    */
   configureVerboseRequestLogging(enable: boolean) {
     this.verboseRequestLogging = enable
-    this.logger.log(`Verbose request logging ${enable ? 'enabled' : 'disabled'}.`)
+    this.logger.log(chalk.blue(`📝 Verbose request logging ${enable ? 'enabled' : 'disabled'}.`))
   }
 
   /**
@@ -202,7 +204,7 @@ export default class OverlayExpress {
       }
     }
     this.knex = Knex(config)
-    this.logger.log('Knex successfully configured.')
+    this.logger.log(chalk.blue('📦 Knex successfully configured.'))
   }
 
   /**
@@ -214,7 +216,7 @@ export default class OverlayExpress {
     await mongoClient.connect()
     const db = mongoClient.db(`${this.name}_lookup_services`)
     this.mongoDb = db
-    this.logger.log('MongoDB successfully configured and connected.')
+    this.logger.log(chalk.blue('🍃 MongoDB successfully configured and connected.'))
   }
 
   /**
@@ -224,7 +226,7 @@ export default class OverlayExpress {
    */
   configureTopicManager(name: string, manager: TopicManager) {
     this.managers[name] = manager
-    this.logger.log(`Configured topic manager ${name}`)
+    this.logger.log(chalk.blue(`🗂️ Configured topic manager ${name}`))
   }
 
   /**
@@ -234,7 +236,7 @@ export default class OverlayExpress {
    */
   configureLookupService(name: string, service: LookupService) {
     this.services[name] = service
-    this.logger.log(`Configured lookup service ${name}`)
+    this.logger.log(chalk.blue(`🔍 Configured lookup service ${name}`))
   }
 
   /**
@@ -250,7 +252,7 @@ export default class OverlayExpress {
     const factoryResult = serviceFactory(this.knex as Knex.Knex)
     this.services[name] = factoryResult.service
     this.migrationsToRun.push(...factoryResult.migrations)
-    this.logger.log(`Configured lookup service ${name} with Knex`)
+    this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with Knex`))
   }
 
   /**
@@ -261,7 +263,7 @@ export default class OverlayExpress {
   configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService) {
     this.ensureMongo()
     this.services[name] = serviceFactory(this.mongoDb as Db)
-    this.logger.log(`Configured lookup service ${name} with MongoDB`)
+    this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with MongoDB`))
   }
 
   /**
@@ -309,7 +311,7 @@ export default class OverlayExpress {
       new DiscoveryServices.LegacyNinjaAdvertiser(this.privateKey, 'https://dojo.babbage.systems', this.hostingURL),
       syncConfig
     )
-    this.logger.log('Engine has been configured.')
+    this.logger.log(chalk.green('🚀 Engine has been configured.'))
   }
 
   /**
@@ -352,32 +354,54 @@ export default class OverlayExpress {
     const engine = this.engine as Engine
     const knex = this.knex as Knex.Knex
 
+    this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
+    this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
+
     if (this.verboseRequestLogging) {
       this.app.use((req, res, next) => {
         const startTime = Date.now();
 
         // Log incoming request details
-        this.logger.log(`Incoming Request: ${req.method} ${req.originalUrl}`);
-        this.logger.log(`Headers: ${JSON.stringify(req.headers)}`);
+        this.logger.log(chalk.magenta.bold(`📥 Incoming Request: ${req.method} ${req.originalUrl}`));
+
+        // Pretty-print headers
+        this.logger.log(chalk.cyan(`Headers:`));
+        this.logger.log(util.inspect(req.headers, { colors: true, depth: null }));
+
+        // Handle request body
         if (req.body && Object.keys(req.body).length > 0) {
-          this.logger.log(`Request Body: ${JSON.stringify(req.body)}`);
+          let bodyContent;
+          let bodyString;
+          if (typeof req.body === 'object') {
+            bodyString = JSON.stringify(req.body, null, 2);
+          } else if (Buffer.isBuffer(req.body)) {
+            bodyString = req.body.toString('utf8');
+          } else {
+            bodyString = req.body.toString();
+          }
+          if (bodyString.length > 280) {
+            bodyContent = chalk.yellow(`(Body too long to display, length: ${bodyString.length} characters)`);
+          } else {
+            bodyContent = chalk.green(`Request Body:\n${bodyString}`);
+          }
+          this.logger.log(bodyContent);
         }
 
         // Log outgoing response details after the response is finished
         res.on('finish', () => {
           const duration = Date.now() - startTime;
           this.logger.log(
-            `Outgoing Response: ${req.method} ${req.originalUrl} - Status: ${res.statusCode} - Duration: ${duration}ms`
+            chalk.magenta.bold(
+              `📤 Outgoing Response: ${req.method} ${req.originalUrl} - Status: ${res.statusCode} - Duration: ${duration}ms`
+            )
           );
-          this.logger.log(`Response Headers: ${JSON.stringify(res.getHeaders())}`);
+          this.logger.log(chalk.cyan(`Response Headers:`));
+          this.logger.log(util.inspect(res.getHeaders(), { colors: true, depth: null }));
         });
 
         next();
       });
     }
-
-    this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
-    this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
 
     // Enable CORS
     this.app.use((req, res, next) => {
@@ -502,7 +526,7 @@ export default class OverlayExpress {
             return res.status(200).json(steak)
           })
         } catch (error) {
-          console.error(error)
+          console.error(chalk.red('❌ Error in /submit:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -522,7 +546,7 @@ export default class OverlayExpress {
           const result = await engine.lookup(req.body)
           return res.status(200).json(result)
         } catch (error) {
-          console.error(error)
+          console.error(chalk.red('❌ Error in /lookup:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -546,7 +570,7 @@ export default class OverlayExpress {
             await engine.handleNewMerkleProof(txid, merklePath, blockHeight)
             return res.status(200).json({ status: 'success', message: 'Transaction status updated' })
           } catch (error) {
-            console.error(error)
+            console.error(chalk.red('❌ Error in /arc-ingest:'), error)
             return res.status(400).json({
               status: 'error',
               message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -560,7 +584,7 @@ export default class OverlayExpress {
         })
       })
     } else {
-      this.logger.warn('Disabling ARC because no ARC API key was provided.')
+      this.logger.warn(chalk.yellow('⚠️ Disabling ARC because no ARC API key was provided.'))
     }
 
     if (this.enableGASPSync) {
@@ -572,7 +596,7 @@ export default class OverlayExpress {
             const response = await engine.provideForeignSyncResponse(req.body, topic)
             return res.status(200).json(response)
           } catch (error) {
-            console.error(error)
+            console.error(chalk.red('❌ Error in /requestSyncResponse:'), error)
             return res.status(400).json({
               status: 'error',
               message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -592,7 +616,7 @@ export default class OverlayExpress {
             const response = await engine.provideForeignGASPNode(graphID, txid, outputIndex)
             return res.status(200).json(response)
           } catch (error) {
-            console.error(error)
+            console.error(chalk.red('❌ Error in /requestForeignGASPNode:'), error)
             return res.status(400).json({
               status: 'error',
               message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -606,7 +630,7 @@ export default class OverlayExpress {
         })
       })
     } else {
-      this.logger.warn('GASP sync is disabled.')
+      this.logger.warn(chalk.yellow('⚠️ GASP sync is disabled.'))
     }
 
     // Automatically handle migrations
@@ -614,11 +638,11 @@ export default class OverlayExpress {
     const result = await knex.migrate.latest({
       migrationSource
     })
-    this.logger.log('Knex migrations run', result)
+    this.logger.log(chalk.green('🔄 Knex migrations run'), result)
 
     // 404 handler for all other routes
     this.app.use((req, res) => {
-      this.logger.log('404', req.url)
+      this.logger.log(chalk.red('❌ 404 Not Found:'), req.url)
       res.status(404).json({
         status: 'error',
         code: 'ERR_ROUTE_NOT_FOUND',
@@ -628,7 +652,7 @@ export default class OverlayExpress {
 
     // Start listening on the configured port
     this.app.listen(this.port, async () => {
-      this.logger.log(`${this.name} listening on local port ${this.port} and will now sync advertisements`);
+      this.logger.log(chalk.green.bold(`🎧 ${this.name} listening on local port ${this.port} and will now sync advertisements`));
 
       // The legacy Ninja advertiser has a setLookupEngine method.
       (this.engine?.advertiser as DiscoveryServices.LegacyNinjaAdvertiser).setLookupEngine(this.engine!)
@@ -639,10 +663,10 @@ export default class OverlayExpress {
         try {
           await this.engine?.startGASPSync()
         } catch (e) {
-          console.error('Failed to GASP sync', e)
+          console.error(chalk.red('❌ Failed to GASP sync'), e)
         }
       } else {
-        this.logger.log(`${this.name} will not GASP sync because it has been disabled`)
+        this.logger.log(chalk.yellow(`${this.name} will not GASP sync because it has been disabled`))
       }
     })
   }
