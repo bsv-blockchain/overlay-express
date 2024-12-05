@@ -676,26 +676,36 @@ export default class OverlayExpress {
         code: 'ERR_ROUTE_NOT_FOUND',
         description: 'Route not found.'
       })
-    })
+    });
+
+    // The legacy Ninja advertiser has a setLookupEngine method.
+    this.logger.log(chalk.cyan(`${this.name} will now advertise with SHIP and SLAP at ${this.hostingURL}`))
+    const numTopicManagers = Object.keys(this.managers).length
+    const numLookupServices = Object.keys(this.services).length
+    this.logger.log(chalk.blue(`Topic Managers:  ${numTopicManagers}`))
+    this.logger.log(chalk.blue(`Lookup Services: ${numLookupServices}`));
+    try {
+      (this.engine?.advertiser as DiscoveryServices.LegacyNinjaAdvertiser).setLookupEngine(this.engine!)
+      await this.engine?.syncAdvertisements()
+    } catch (e) {
+      this.logger.log(chalk.red('❌ Error syncing advertisements:'), e)
+    }
+
+    if (this.enableGASPSync) {
+      try {
+        this.logger.log(chalk.green('Starting GASP sync...'))
+        await this.engine?.startGASPSync()
+        this.logger.log(chalk.green('GASP sync complete!'))
+      } catch (e) {
+        console.error(chalk.red('❌ Failed to GASP sync'), e)
+      }
+    } else {
+      this.logger.log(chalk.yellow(`${this.name} will not sync because GASP has been disabled.`))
+    }
 
     // Start listening on the configured port
     this.app.listen(this.port, async () => {
-      this.logger.log(chalk.green.bold(`🎧 ${this.name} listening on local port ${this.port} and will now sync advertisements`));
-
-      // The legacy Ninja advertiser has a setLookupEngine method.
-      (this.engine?.advertiser as DiscoveryServices.LegacyNinjaAdvertiser).setLookupEngine(this.engine!)
-
-      await this.engine?.syncAdvertisements()
-
-      if (this.enableGASPSync) {
-        try {
-          await this.engine?.startGASPSync()
-        } catch (e) {
-          console.error(chalk.red('❌ Failed to GASP sync'), e)
-        }
-      } else {
-        this.logger.log(chalk.yellow(`${this.name} will not GASP sync because it has been disabled`))
-      }
+      this.logger.log(chalk.green.bold(`🎧 ${this.name} is ready and listening on local port ${this.port}`));
     })
   }
 }
