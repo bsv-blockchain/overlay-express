@@ -387,6 +387,15 @@ export default class OverlayExpress {
           this.logger.log(bodyContent);
         }
 
+        // Intercept the res.send method
+        const originalSend = res.send;
+        let responseBody: any;
+
+        res.send = function (body?: any): any {
+          responseBody = body;
+          return originalSend.call(this, body);
+        };
+
         // Log outgoing response details after the response is finished
         res.on('finish', () => {
           const duration = Date.now() - startTime;
@@ -397,6 +406,25 @@ export default class OverlayExpress {
           );
           this.logger.log(chalk.cyan(`Response Headers:`));
           this.logger.log(util.inspect(res.getHeaders(), { colors: true, depth: null }));
+
+          // Handle response body
+          if (responseBody) {
+            let bodyContent;
+            let bodyString;
+            if (typeof responseBody === 'object') {
+              bodyString = JSON.stringify(responseBody, null, 2);
+            } else if (Buffer.isBuffer(responseBody)) {
+              bodyString = responseBody.toString('utf8');
+            } else {
+              bodyString = responseBody.toString();
+            }
+            if (bodyString.length > 280) {
+              bodyContent = chalk.yellow(`(Response body too long to display, length: ${bodyString.length} characters)`);
+            } else {
+              bodyContent = chalk.green(`Response Body:\n${bodyString}`);
+            }
+            this.logger.log(bodyContent);
+          }
         });
 
         next();
