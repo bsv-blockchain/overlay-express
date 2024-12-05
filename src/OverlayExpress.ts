@@ -1,4 +1,5 @@
 import express from 'express'
+import cors from 'cors'
 import bodyParser from 'body-parser'
 import { Engine, KnexStorage, LookupService, TopicManager, KnexStorageMigrations } from '@bsv/overlay'
 import { ARC, ChainTracker, MerklePath, STEAK, TaggedBEEF, WhatsOnChain } from '@bsv/sdk'
@@ -379,18 +380,19 @@ export default class OverlayExpress {
     this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
     this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
 
-    // Enable CORS
-    this.app.use((req, res, next) => {
-      res.header('Access-Control-Allow-Origin', '*')
-      res.header('Access-Control-Allow-Headers', '*')
-      res.header('Access-Control-Allow-Methods', '*')
-      res.header('Access-Control-Expose-Headers', '*')
-      res.header('Access-Control-Allow-Private-Network', 'true')
-      if (req.method === 'OPTIONS') {
-        res.sendStatus(200)
-      } else {
-        next()
-      }
+    // Enable CORs
+    this.app.use(cors({
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: '*',
+      exposedHeaders: '*',
+      optionsSuccessStatus: 200,
+      preflightContinue: true
+    }));
+
+    this.app.options('*', (req, res) => {
+      res.header('Access-Control-Allow-Private-Network', 'true');
+      res.sendStatus(200);
     })
 
     // Serve a static documentation site or user interface
