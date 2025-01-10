@@ -68,6 +68,24 @@ main()
 
 Check out [API.md](./API.md) for the API docs.
 
+## Additional Features
+
+### Advanced Engine Configuration
+
+We've introduced a new method, `configureEngineParams`, that allows you to pass advanced configuration options to the underlying Overlay Engine. Here's an example usage:
+
+```typescript
+server.configureEngineParams({
+  logTime: true,
+  throwOnBroadcastFailure: true,
+  overlayBroadcastFacilitator: new MyCustomFacilitator()
+})
+```
+
+### Admin-Protected Endpoints
+
+We also now provide admin-protected endpoints for certain advanced operations like manually syncing advertisements or triggering GASP sync. These endpoints require a Bearer token. You can supply a custom token in the constructor of `OverlayExpress`, or retrieve the auto-generated token by calling `server.getAdminToken()`. You can then include this token as a Bearer token in the `Authorization` header of requests to the `/admin/syncAdvertisements` and `/admin/startGASPSync` endpoints.
+
 ## License
 
 The license for the code in this repository is the Open BSV License. Refer to [LICENSE.txt](./LICENSE.txt) for the license text.
