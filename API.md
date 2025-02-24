@@ -1,7 +1,31 @@
 # API
 
-Links: [API](#api), [Classes](#classes), [Types](#types)
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
 
+## Interfaces
+
+### Interface: EngineConfig
+
+Configuration options that map to Engine constructor parameters.
+
+```ts
+export interface EngineConfig {
+    chainTracker?: ChainTracker | "scripts only";
+    shipTrackers?: string[];
+    slapTrackers?: string[];
+    broadcaster?: Broadcaster;
+    advertiser?: Advertiser;
+    syncConfiguration?: Record<string, string[] | "SHIP" | false>;
+    logTime?: boolean;
+    logPrefix?: string;
+    throwOnBroadcastFailure?: boolean;
+    overlayBroadcastFacilitator?: OverlayBroadcastFacilitator;
+}
+```
+
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
+
+---
 ## Classes
 
 ### Class: OverlayExpress
@@ -19,7 +43,7 @@ export default class OverlayExpress {
     migrationsToRun: Array<Migration> = [];
     mongoDb: Db | undefined = undefined;
     network: "main" | "test" = "main";
-    chainTracker: ChainTracker = new WhatsOnChain(this.network);
+    chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network);
     engine: Engine | undefined = undefined;
     managers: Record<string, TopicManager> = {};
     services: Record<string, LookupService> = {};
@@ -27,12 +51,14 @@ export default class OverlayExpress {
     arcApiKey: string | undefined = undefined;
     verboseRequestLogging: boolean = false;
     webUIConfig: UIConfig = {};
-    constructor(public name: string, public privateKey: string, public hostingURL: string) 
+    engineConfig: EngineConfig = {};
+    constructor(public name: string, public privateKey: string, public hostingURL: string, adminToken?: string) 
+    getAdminToken(): string 
     configurePort(port: number) 
     configureWebUI(config: UIConfig) 
     configureLogger(logger: typeof console) 
     configureNetwork(network: "main" | "test") 
-    configureChainTracker(chainTracker: ChainTracker = new WhatsOnChain(this.network)) 
+    configureChainTracker(chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network)) 
     configureArcApiKey(apiKey: string) 
     configureEnableGASPSync(enable: boolean) 
     configureVerboseRequestLogging(enable: boolean) 
@@ -45,12 +71,13 @@ export default class OverlayExpress {
         migrations: Array<Migration>;
     }) 
     configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService) 
+    configureEngineParams(params: EngineConfig) 
     async configureEngine(autoConfigureShipSlap = true) 
     async start() 
 }
 ```
 
-See also: [UIConfig](#type-uiconfig)
+See also: [EngineConfig](#interface-engineconfig), [UIConfig](#type-uiconfig)
 
 <details>
 
@@ -61,7 +88,7 @@ See also: [UIConfig](#type-uiconfig)
 Constructs an instance of OverlayExpress.
 
 ```ts
-constructor(public name: string, public privateKey: string, public hostingURL: string) 
+constructor(public name: string, public privateKey: string, public hostingURL: string, adminToken?: string) 
 ```
 
 Argument Details
@@ -72,6 +99,9 @@ Argument Details
   + Private key used for signing advertisements
 + **hostingURL**
   + The public URL where this service is hosted
++ **adminToken**
+  + Optional. An administrative Bearer token used to protect admin routes.
+  If not provided, a random token will be generated at runtime.
 
 #### Method configureArcApiKey
 
@@ -89,19 +119,21 @@ Argument Details
 #### Method configureChainTracker
 
 Configures the ChainTracker to be used.
+If 'scripts only' is used, it implies no full SPV chain tracking in the Engine.
 
 ```ts
-configureChainTracker(chainTracker: ChainTracker = new WhatsOnChain(this.network)) 
+configureChainTracker(chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network)) 
 ```
 
 Argument Details
 
 + **chainTracker**
-  + An instance of ChainTracker
+  + An instance of ChainTracker or 'scripts only'
 
 #### Method configureEnableGASPSync
 
-Enables or disables GASP synchronization.
+Enables or disables GASP synchronization (high-level setting).
+This is a broad toggle that can be overridden or customized through syncConfiguration.
 
 ```ts
 configureEnableGASPSync(enable: boolean) 
@@ -114,7 +146,9 @@ Argument Details
 
 #### Method configureEngine
 
-Configures the Overlay Engine.
+Configures the Overlay Engine itself.
+By default, auto-configures SHIP and SLAP unless autoConfigureShipSlap = false
+Then it merges in any advanced engine config from `this.engineConfig`.
 
 ```ts
 async configureEngine(autoConfigureShipSlap = true) 
@@ -125,9 +159,29 @@ Argument Details
 + **autoConfigureShipSlap**
   + Whether to auto-configure SHIP and SLAP services (default: true)
 
+#### Method configureEngineParams
+
+Advanced configuration method for setting or overriding any
+Engine constructor parameters via an EngineConfig object.
+
+Example usage:
+  configureEngineParams({
+    logTime: true,
+    throwOnBroadcastFailure: true,
+    overlayBroadcastFacilitator: new MyCustomFacilitator()
+  })
+
+These fields will be respected when we finally build/configure the Engine
+in the `configureEngine()` method below.
+
+```ts
+configureEngineParams(params: EngineConfig) 
+```
+See also: [EngineConfig](#interface-engineconfig)
+
 #### Method configureKnex
 
-Configures the Knex (SQL) database connection.
+Configure Knex (SQL) database connection.
 
 ```ts
 async configureKnex(config: Knex.Knex.Config | string) 
@@ -215,6 +269,7 @@ Argument Details
 #### Method configureNetwork
 
 Configures the BSV Blockchain network to be used ('main' or 'test').
+By default, it re-initializes chainTracker as a WhatsOnChain for that network.
 
 ```ts
 configureNetwork(network: "main" | "test") 
@@ -280,6 +335,14 @@ Argument Details
 + **config**
   + Web UI configuration options
 
+#### Method getAdminToken
+
+Returns the current admin token in case you need to programmatically retrieve or display it.
+
+```ts
+getAdminToken(): string 
+```
+
 #### Method start
 
 Starts the Express server.
@@ -291,7 +354,7 @@ async start()
 
 </details>
 
-Links: [API](#api), [Classes](#classes), [Types](#types)
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
 
 ---
 ## Types
@@ -314,6 +377,6 @@ export type UIConfig = {
 }
 ```
 
-Links: [API](#api), [Classes](#classes), [Types](#types)
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
 
 ---
