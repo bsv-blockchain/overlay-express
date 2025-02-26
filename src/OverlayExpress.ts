@@ -23,7 +23,7 @@ import { v4 as uuidv4 } from 'uuid'
 /**
  * Knex database migration.
  */
-type Migration = {
+interface Migration {
   name?: string
   up: (knex: Knex.Knex) => Promise<void>
   down?: (knex: Knex.Knex) => Promise<void>
@@ -34,7 +34,7 @@ type Migration = {
  * Allows running migrations defined in code rather than files.
  */
 class InMemoryMigrationSource implements Knex.Knex.MigrationSource<Migration> {
-  constructor(private migrations: Migration[]) { }
+  constructor(private readonly migrations: Migration[]) { }
 
   /**
    * Gets the list of migrations.
@@ -51,7 +51,7 @@ class InMemoryMigrationSource implements Knex.Knex.MigrationSource<Migration> {
    * @returns The name of the migration
    */
   getMigrationName(migration: Migration): string {
-    return migration.name || `Migration at index ${this.migrations.indexOf(migration)}`
+    return typeof migration.name === 'string' ? migration.name : `Migration at index ${this.migrations.indexOf(migration)}`
   }
 
   /**
@@ -59,8 +59,8 @@ class InMemoryMigrationSource implements Knex.Knex.MigrationSource<Migration> {
    * @param migration - The migration object
    * @returns Promise resolving to the migration object
    */
-  getMigration(migration: Migration): Promise<Knex.Knex.Migration> {
-    return Promise.resolve(migration)
+  async getMigration(migration: Migration): Promise<Knex.Knex.Migration> {
+    return await Promise.resolve(migration)
   }
 }
 
@@ -171,7 +171,7 @@ export default class OverlayExpress {
    * Configures the port on which the server will listen.
    * @param port - The port number
    */
-  configurePort(port: number) {
+  configurePort(port: number): void {
     this.port = port
     this.logger.log(chalk.blue(`🌐 Server port set to ${port}`))
   }
@@ -180,7 +180,7 @@ export default class OverlayExpress {
    * Configures the web user interface
    * @param config - Web UI configuration options
    */
-  configureWebUI(config: UIConfig) {
+  configureWebUI(config: UIConfig): void {
     this.webUIConfig = config
     this.logger.log(chalk.blue('🖥️ Web UI has been configured.'))
   }
@@ -189,7 +189,7 @@ export default class OverlayExpress {
    * Configures the logger to be used by the server.
    * @param logger - A logger object (e.g., console)
    */
-  configureLogger(logger: typeof console) {
+  configureLogger(logger: typeof console): void {
     this.logger = logger
     this.logger.log(chalk.blue('🔍 Logger has been configured.'))
   }
@@ -199,7 +199,7 @@ export default class OverlayExpress {
    * By default, it re-initializes chainTracker as a WhatsOnChain for that network.
    * @param network - The network ('main' or 'test')
    */
-  configureNetwork(network: 'main' | 'test') {
+  configureNetwork(network: 'main' | 'test'): void {
     this.network = network
     this.chainTracker = new WhatsOnChain(this.network)
     this.logger.log(chalk.blue(`🔗 Network set to ${network}`))
@@ -210,7 +210,7 @@ export default class OverlayExpress {
    * If 'scripts only' is used, it implies no full SPV chain tracking in the Engine.
    * @param chainTracker - An instance of ChainTracker or 'scripts only'
    */
-  configureChainTracker(chainTracker: ChainTracker | 'scripts only' = new WhatsOnChain(this.network)) {
+  configureChainTracker(chainTracker: ChainTracker | 'scripts only' = new WhatsOnChain(this.network)): void {
     this.chainTracker = chainTracker
     this.logger.log(chalk.blue('🔗 ChainTracker has been configured.'))
   }
@@ -219,7 +219,7 @@ export default class OverlayExpress {
    * Configures the ARC API key.
    * @param apiKey - The ARC API key
    */
-  configureArcApiKey(apiKey: string) {
+  configureArcApiKey(apiKey: string): void {
     this.arcApiKey = apiKey
     this.logger.log(chalk.blue('🔑 ARC API key has been configured.'))
   }
@@ -229,7 +229,7 @@ export default class OverlayExpress {
    * This is a broad toggle that can be overridden or customized through syncConfiguration.
    * @param enable - true to enable, false to disable
    */
-  configureEnableGASPSync(enable: boolean) {
+  configureEnableGASPSync(enable: boolean): void {
     this.enableGASPSync = enable
     this.logger.log(chalk.blue(`🔄 GASP synchronization ${enable ? 'enabled' : 'disabled'}.`))
   }
@@ -238,7 +238,7 @@ export default class OverlayExpress {
    * Enables or disables verbose request logging.
    * @param enable - true to enable, false to disable
    */
-  configureVerboseRequestLogging(enable: boolean) {
+  configureVerboseRequestLogging(enable: boolean): void {
     this.verboseRequestLogging = enable
     this.logger.log(chalk.blue(`📝 Verbose request logging ${enable ? 'enabled' : 'disabled'}.`))
   }
@@ -247,7 +247,7 @@ export default class OverlayExpress {
    * Configure Knex (SQL) database connection.
    * @param config - Knex configuration object, or MySQL connection string (e.g. mysql://overlayAdmin:overlay123@mysql:3306/overlay).
    */
-  async configureKnex(config: Knex.Knex.Config | string) {
+  async configureKnex(config: Knex.Knex.Config | string): Promise<void> {
     if (typeof config === 'string') {
       config = {
         client: 'mysql2',
@@ -262,7 +262,7 @@ export default class OverlayExpress {
    * Configures the MongoDB database connection.
    * @param connectionString - MongoDB connection string
    */
-  async configureMongo(connectionString: string) {
+  async configureMongo(connectionString: string): Promise<void> {
     const mongoClient = new MongoClient(connectionString)
     await mongoClient.connect()
     const db = mongoClient.db(`${this.name}_lookup_services`)
@@ -275,7 +275,7 @@ export default class OverlayExpress {
    * @param name - The name of the Topic Manager
    * @param manager - An instance of TopicManager
    */
-  configureTopicManager(name: string, manager: TopicManager) {
+  configureTopicManager(name: string, manager: TopicManager): void {
     this.managers[name] = manager
     this.logger.log(chalk.blue(`🗂️ Configured topic manager ${name}`))
   }
@@ -285,7 +285,7 @@ export default class OverlayExpress {
    * @param name - The name of the Lookup Service
    * @param service - An instance of LookupService
    */
-  configureLookupService(name: string, service: LookupService) {
+  configureLookupService(name: string, service: LookupService): void {
     this.services[name] = service
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name}`))
   }
@@ -298,7 +298,7 @@ export default class OverlayExpress {
   configureLookupServiceWithKnex(
     name: string,
     serviceFactory: (knex: Knex.Knex) => { service: LookupService; migrations: Array<Migration> }
-  ) {
+  ): void {
     this.ensureKnex()
     const factoryResult = serviceFactory(this.knex as Knex.Knex)
     this.services[name] = factoryResult.service
@@ -311,7 +311,7 @@ export default class OverlayExpress {
    * @param name - The name of the Lookup Service
    * @param serviceFactory - A factory function that creates a LookupService instance using MongoDB
    */
-  configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService) {
+  configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService): void {
     this.ensureMongo()
     this.services[name] = serviceFactory(this.mongoDb as Db)
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with MongoDB`))
@@ -331,7 +331,7 @@ export default class OverlayExpress {
    * These fields will be respected when we finally build/configure the Engine
    * in the `configureEngine()` method below.
    */
-  configureEngineParams(params: EngineConfig) {
+  configureEngineParams(params: EngineConfig): void {
     this.engineConfig = {
       ...this.engineConfig,
       ...params
@@ -346,7 +346,7 @@ export default class OverlayExpress {
    *
    * @param autoConfigureShipSlap - Whether to auto-configure SHIP and SLAP services (default: true)
    */
-  async configureEngine(autoConfigureShipSlap = true) {
+  async configureEngine(autoConfigureShipSlap = true): Promise<void> {
     this.ensureKnex()
 
     if (autoConfigureShipSlap) {
@@ -363,7 +363,7 @@ export default class OverlayExpress {
 
     // Construct a default sync configuration, in case the user doesn't want GASP at all:
     let syncConfig: Record<string, string[] | 'SHIP' | false> = {}
-    if (this.enableGASPSync === false) {
+    if (!this.enableGASPSync) {
       // For each manager, disable sync
       for (const managerName of Object.keys(this.managers)) {
         syncConfig[managerName] = false
@@ -379,19 +379,25 @@ export default class OverlayExpress {
     this.migrationsToRun = [...KnexStorageMigrations.default, ...this.migrationsToRun]
 
     // Prepare broadcaster if arcApiKey is set
-    let broadcaster: Broadcaster | undefined = undefined
-    if (this.arcApiKey) {
-      broadcaster = new ARC('https://arc.taal.com', {
-        apiKey: this.arcApiKey
-      })
+    let broadcaster: Broadcaster | undefined
+    if (typeof this.arcApiKey === 'string') {
+      broadcaster = new ARC(
+        // We hard-code some ARC URLs for now, but we should make this configurable later.
+        this.network === 'test' ? 'https://arc-test.taal.com' : 'https://arc.taal.com',
+        {
+          apiKey: this.arcApiKey
+        })
     }
 
     // Prepare advertiser if not set by the user
     let advertiser: Advertiser | undefined = this.engineConfig.advertiser
-    if (!advertiser) {
-      advertiser = new DiscoveryServices.LegacyNinjaAdvertiser(
+    if (typeof advertiser === 'undefined') {
+      advertiser = new DiscoveryServices.WalletAdvertiser(
+        this.network,
         this.privateKey,
-        'https://dojo.babbage.systems',
+        this.network === 'test' // For now, we hard-code some storage servers. In the future, this needs to be configurable.
+          ? 'https://staging-storage.babbage.systems'
+          : 'https://storage.babbage.systems',
         this.hostingURL
       )
     }
@@ -436,7 +442,7 @@ export default class OverlayExpress {
    * Ensures that Knex is configured.
    * @throws Error if Knex is not configured
    */
-  private ensureKnex() {
+  private ensureKnex(): void {
     if (typeof this.knex === 'undefined') {
       throw new Error('You must configure your SQL database with the .configureKnex() method first!')
     }
@@ -446,7 +452,7 @@ export default class OverlayExpress {
    * Ensures that MongoDB is configured.
    * @throws Error if MongoDB is not configured
    */
-  private ensureMongo() {
+  private ensureMongo(): void {
     if (typeof this.mongoDb === 'undefined') {
       throw new Error('You must configure your MongoDB connection with the .configureMongo() method first!')
     }
@@ -456,7 +462,7 @@ export default class OverlayExpress {
    * Ensures that the Overlay Engine is configured.
    * @throws Error if the Engine is not configured
    */
-  private ensureEngine() {
+  private ensureEngine(): void {
     if (typeof this.engine === 'undefined') {
       throw new Error('You must configure your Overlay Services engine with the .configureEngine() method first!')
     }
@@ -863,13 +869,13 @@ export default class OverlayExpress {
     })
 
     // The legacy Ninja advertiser has a setLookupEngine method.
-    if (this.engine?.advertiser instanceof DiscoveryServices.LegacyNinjaAdvertiser) {
+    if (this.engine?.advertiser instanceof DiscoveryServices.WalletAdvertiser) {
       this.logger.log(
         chalk.cyan(
           `${this.name} will now advertise with SHIP and SLAP at ${this.hostingURL}`
         )
       )
-        ; (this.engine.advertiser as DiscoveryServices.LegacyNinjaAdvertiser).setLookupEngine(this.engine)
+      await this.engine.advertiser.initWithEngine(this.engine)
     }
 
     // Log some info about topic managers and services
