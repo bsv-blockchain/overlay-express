@@ -54,25 +54,25 @@ export default class OverlayExpress {
     engineConfig: EngineConfig = {};
     constructor(public name: string, public privateKey: string, public hostingURL: string, adminToken?: string) 
     getAdminToken(): string 
-    configurePort(port: number) 
-    configureWebUI(config: UIConfig) 
-    configureLogger(logger: typeof console) 
-    configureNetwork(network: "main" | "test") 
-    configureChainTracker(chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network)) 
-    configureArcApiKey(apiKey: string) 
-    configureEnableGASPSync(enable: boolean) 
-    configureVerboseRequestLogging(enable: boolean) 
-    async configureKnex(config: Knex.Knex.Config | string) 
-    async configureMongo(connectionString: string) 
-    configureTopicManager(name: string, manager: TopicManager) 
-    configureLookupService(name: string, service: LookupService) 
+    configurePort(port: number): void 
+    configureWebUI(config: UIConfig): void 
+    configureLogger(logger: typeof console): void 
+    configureNetwork(network: "main" | "test"): void 
+    configureChainTracker(chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network)): void 
+    configureArcApiKey(apiKey: string): void 
+    configureEnableGASPSync(enable: boolean): void 
+    configureVerboseRequestLogging(enable: boolean): void 
+    async configureKnex(config: Knex.Knex.Config | string): Promise<void> 
+    async configureMongo(connectionString: string): Promise<void> 
+    configureTopicManager(name: string, manager: TopicManager): void 
+    configureLookupService(name: string, service: LookupService): void 
     configureLookupServiceWithKnex(name: string, serviceFactory: (knex: Knex.Knex) => {
         service: LookupService;
         migrations: Array<Migration>;
-    }) 
-    configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService) 
-    configureEngineParams(params: EngineConfig) 
-    async configureEngine(autoConfigureShipSlap = true) 
+    }): void 
+    configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService): void 
+    configureEngineParams(params: EngineConfig): void 
+    async configureEngine(autoConfigureShipSlap = true): Promise<void> 
     async start() 
 }
 ```
@@ -108,7 +108,7 @@ Argument Details
 Configures the ARC API key.
 
 ```ts
-configureArcApiKey(apiKey: string) 
+configureArcApiKey(apiKey: string): void 
 ```
 
 Argument Details
@@ -122,7 +122,7 @@ Configures the ChainTracker to be used.
 If 'scripts only' is used, it implies no full SPV chain tracking in the Engine.
 
 ```ts
-configureChainTracker(chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network)) 
+configureChainTracker(chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network)): void 
 ```
 
 Argument Details
@@ -136,7 +136,7 @@ Enables or disables GASP synchronization (high-level setting).
 This is a broad toggle that can be overridden or customized through syncConfiguration.
 
 ```ts
-configureEnableGASPSync(enable: boolean) 
+configureEnableGASPSync(enable: boolean): void 
 ```
 
 Argument Details
@@ -151,7 +151,7 @@ By default, auto-configures SHIP and SLAP unless autoConfigureShipSlap = false
 Then it merges in any advanced engine config from `this.engineConfig`.
 
 ```ts
-async configureEngine(autoConfigureShipSlap = true) 
+async configureEngine(autoConfigureShipSlap = true): Promise<void> 
 ```
 
 Argument Details
@@ -175,7 +175,7 @@ These fields will be respected when we finally build/configure the Engine
 in the `configureEngine()` method below.
 
 ```ts
-configureEngineParams(params: EngineConfig) 
+configureEngineParams(params: EngineConfig): void 
 ```
 See also: [EngineConfig](#interface-engineconfig)
 
@@ -184,7 +184,7 @@ See also: [EngineConfig](#interface-engineconfig)
 Configure Knex (SQL) database connection.
 
 ```ts
-async configureKnex(config: Knex.Knex.Config | string) 
+async configureKnex(config: Knex.Knex.Config | string): Promise<void> 
 ```
 
 Argument Details
@@ -197,7 +197,7 @@ Argument Details
 Configures the logger to be used by the server.
 
 ```ts
-configureLogger(logger: typeof console) 
+configureLogger(logger: typeof console): void 
 ```
 
 Argument Details
@@ -210,7 +210,7 @@ Argument Details
 Configures a Lookup Service.
 
 ```ts
-configureLookupService(name: string, service: LookupService) 
+configureLookupService(name: string, service: LookupService): void 
 ```
 
 Argument Details
@@ -228,7 +228,7 @@ Configures a Lookup Service using Knex (SQL) database.
 configureLookupServiceWithKnex(name: string, serviceFactory: (knex: Knex.Knex) => {
     service: LookupService;
     migrations: Array<Migration>;
-}) 
+}): void 
 ```
 
 Argument Details
@@ -243,7 +243,7 @@ Argument Details
 Configures a Lookup Service using MongoDB.
 
 ```ts
-configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService) 
+configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService): void 
 ```
 
 Argument Details
@@ -258,7 +258,7 @@ Argument Details
 Configures the MongoDB database connection.
 
 ```ts
-async configureMongo(connectionString: string) 
+async configureMongo(connectionString: string): Promise<void> 
 ```
 
 Argument Details
@@ -272,7 +272,7 @@ Configures the BSV Blockchain network to be used ('main' or 'test').
 By default, it re-initializes chainTracker as a WhatsOnChain for that network.
 
 ```ts
-configureNetwork(network: "main" | "test") 
+configureNetwork(network: "main" | "test"): void 
 ```
 
 Argument Details
@@ -285,7 +285,7 @@ Argument Details
 Configures the port on which the server will listen.
 
 ```ts
-configurePort(port: number) 
+configurePort(port: number): void 
 ```
 
 Argument Details
@@ -298,7 +298,7 @@ Argument Details
 Configures a Topic Manager.
 
 ```ts
-configureTopicManager(name: string, manager: TopicManager) 
+configureTopicManager(name: string, manager: TopicManager): void 
 ```
 
 Argument Details
@@ -313,7 +313,7 @@ Argument Details
 Enables or disables verbose request logging.
 
 ```ts
-configureVerboseRequestLogging(enable: boolean) 
+configureVerboseRequestLogging(enable: boolean): void 
 ```
 
 Argument Details
@@ -326,7 +326,7 @@ Argument Details
 Configures the web user interface
 
 ```ts
-configureWebUI(config: UIConfig) 
+configureWebUI(config: UIConfig): void 
 ```
 See also: [UIConfig](#type-uiconfig)
 
