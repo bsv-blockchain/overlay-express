@@ -145,14 +145,14 @@ export default class OverlayExpress {
    * Constructs an instance of OverlayExpress.
    * @param name - The name of the service
    * @param privateKey - Private key used for signing advertisements
-   * @param hostingURL - The public URL where this service is hosted
+   * @param advertisableFQDN - The fully qualified domain name where this service is available. Does not include "https://".
    * @param adminToken - Optional. An administrative Bearer token used to protect admin routes.
    *                     If not provided, a random token will be generated at runtime.
    */
   constructor(
     public name: string,
     public privateKey: string,
-    public hostingURL: string,
+    public advertisableFQDN: string,
     adminToken?: string
   ) {
     this.app = express()
@@ -398,7 +398,8 @@ export default class OverlayExpress {
         this.network === 'test' // For now, we hard-code some storage servers. In the future, this needs to be configurable.
           ? 'https://staging-storage.babbage.systems'
           : 'https://storage.babbage.systems',
-        this.hostingURL
+        // Until multiple protocols (like https+bsvauth+smf) are fully supported, HTTPS is the one to always use.
+        `https://${this.advertisableFQDN}`
       )
     }
 
@@ -412,7 +413,7 @@ export default class OverlayExpress {
         ? this.engineConfig.chainTracker
         : this.chainTracker,
       // hostingURL
-      this.hostingURL,
+      this.advertisableFQDN,
       // shipTrackers
       this.engineConfig.shipTrackers,
       // slapTrackers
@@ -872,7 +873,7 @@ export default class OverlayExpress {
     if (this.engine?.advertiser instanceof DiscoveryServices.WalletAdvertiser) {
       this.logger.log(
         chalk.cyan(
-          `${this.name} will now advertise with SHIP and SLAP at ${this.hostingURL}`
+          `${this.name} will now advertise with SHIP and SLAP as appropriate at FQDN: ${this.advertisableFQDN}`
         )
       )
       await this.engine.advertiser.initWithEngine(this.engine)
