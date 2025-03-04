@@ -673,9 +673,10 @@ export default class OverlayExpress {
           }
 
           // Using a callback function, we can return once the STEAK is ready
-          await engine.submit(taggedBEEF, (steak: STEAK) => {
+          const steak = await engine.submit(taggedBEEF, (steak: STEAK) => {
             return res.status(200).json(steak)
           })
+          res.status(200).json(steak)
         } catch (error) {
           console.error(chalk.red('❌ Error in /submit:'), error)
           return res.status(400).json({
