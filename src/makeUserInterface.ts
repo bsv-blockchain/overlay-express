@@ -230,7 +230,7 @@ export default (config: UIConfig = {}): string => {
 
     window.topicDocumentation = async (provider) => {
       try {
-        let res = await fetch(\`/getDocumentationForLookupServiceProvider?lookupServices=\${provider}\`);
+        let res = await fetch(\`/getDocumentationForLookupServiceProvider?lookupService=\${provider}\`);
         let docs = await res.text();
         let providerReadme = Convert(docs);
 
