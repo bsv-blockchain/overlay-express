@@ -642,7 +642,8 @@ export default class OverlayExpress {
         try {
           const lookupService = req.query.lookupService as string
           const result = await engine.getDocumentationForLookupServiceProvider(lookupService)
-          return res.status(200).json(result)
+          res.setHeader('Content-Type', 'text/markdown')
+          return res.status(200).send(result)
         } catch (error) {
           return res.status(400).json({
             status: 'error',
