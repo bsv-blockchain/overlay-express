@@ -414,7 +414,7 @@ export default class OverlayExpress {
         ? this.engineConfig.chainTracker
         : this.chainTracker,
       // hostingURL
-      this.advertisableFQDN,
+      `https://${this.advertisableFQDN}`,
       // shipTrackers
       this.network === 'test'
         ? (this.engineConfig.shipTrackers ?? DEFAULT_TESTNET_SLAP_TRACKERS)
