@@ -393,15 +393,19 @@ export default class OverlayExpress {
     // Prepare advertiser if not set by the user
     let advertiser: Advertiser | undefined = this.engineConfig.advertiser
     if (typeof advertiser === 'undefined') {
-      advertiser = new DiscoveryServices.WalletAdvertiser(
-        this.network,
-        this.privateKey,
-        this.network === 'test' // For now, we hard-code some storage servers. In the future, this needs to be configurable.
-          ? 'https://staging-storage.babbage.systems'
-          : 'https://storage.babbage.systems',
-        // Until multiple protocols (like https+bsvauth+smf) are fully supported, HTTPS is the one to always use.
-        `https://${this.advertisableFQDN}`
-      )
+      try {
+        advertiser = new DiscoveryServices.WalletAdvertiser(
+          this.network,
+          this.privateKey,
+          this.network === 'test' // For now, we hard-code some storage servers. In the future, this needs to be configurable.
+            ? 'https://staging-storage.babbage.systems'
+            : 'https://storage.babbage.systems',
+          // Until multiple protocols (like https+bsvauth+smf) are fully supported, HTTPS is the one to always use.
+          `https://${this.advertisableFQDN}`
+        )
+      } catch (e) {
+        this.logger.log(`Advertiser not initialized for FQDN ${this.advertisableFQDN} - SHIP and SLAP will be disabled.`)
+      }
     }
 
     // Construct the Engine with any advanced config overrides. Fallback to defaults.
