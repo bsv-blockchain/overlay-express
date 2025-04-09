@@ -889,7 +889,7 @@ export default class OverlayExpress {
           `${this.name} will now advertise with SHIP and SLAP as appropriate at FQDN: ${this.advertisableFQDN}`
         )
       )
-      await this.engine.advertiser.initWithEngine(this.engine)
+      await this.engine.advertiser.init()
     }
 
     // Log some info about topic managers and services
