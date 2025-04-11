@@ -11,7 +11,8 @@ import {
   Broadcaster,
   OverlayBroadcastFacilitator,
   HTTPSOverlayBroadcastFacilitator,
-  DEFAULT_TESTNET_SLAP_TRACKERS
+  DEFAULT_TESTNET_SLAP_TRACKERS,
+  DEFAULT_SLAP_TRACKERS
 } from '@bsv/sdk'
 import Knex from 'knex'
 import { MongoClient, Db } from 'mongodb'
@@ -424,7 +425,11 @@ export default class OverlayExpress {
         ? (this.engineConfig.shipTrackers ?? DEFAULT_TESTNET_SLAP_TRACKERS)
         : this.engineConfig.shipTrackers,
       // slapTrackers
-      this.engineConfig.slapTrackers,
+      Array.isArray(this.engineConfig.slapTrackers)
+        ? this.engineConfig.slapTrackers
+        : this.network === 'test'
+          ? DEFAULT_TESTNET_SLAP_TRACKERS
+          : DEFAULT_SLAP_TRACKERS,
       // broadcaster
       broadcaster ?? this.engineConfig.broadcaster,
       // advertiser
