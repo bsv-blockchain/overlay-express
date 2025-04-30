@@ -870,6 +870,32 @@ export default class OverlayExpress {
       })
     })
 
+    /**
+     * Admin route to evict an outpoint from a lookup service.
+     */
+    this.app.post('/admin/evictOutpoint', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          const service = engine.lookupServices[req.body.service]
+          if (typeof service.outputDeleted === 'function') {
+            await service.outputDeleted(req.body.txid, req.body.outputIndex, req.body.topic)
+          }
+          return res.status(200).json({ status: 'success', message: 'Outpoint evicted' })
+        } catch (error) {
+          console.error(chalk.red('❌ Error in /admin/evictOutpoint:'), error)
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({
+          status: 'error',
+          message: 'Unexpected error'
+        })
+      })
+    })
+
     // Automatically handle migrations
     const migrationSource = new InMemoryMigrationSource(this.migrationsToRun)
     const result = await knex.migrate.latest({
