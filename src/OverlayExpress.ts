@@ -101,7 +101,7 @@ export default class OverlayExpress {
   knex: Knex.Knex | undefined = undefined
 
   // Knex migrations to run
-  migrationsToRun: Array<Migration> = []
+  migrationsToRun: Migration[] = []
 
   // MongoDB database
   mongoDb: Db | undefined = undefined
@@ -141,7 +141,7 @@ export default class OverlayExpress {
 
   // The administrative Bearer token used for the admin routes.
   // If not passed in, we'll generate a random one.
-  private adminToken: string
+  private readonly adminToken: string
 
   /**
    * Constructs an instance of OverlayExpress.
@@ -299,7 +299,7 @@ export default class OverlayExpress {
    */
   configureLookupServiceWithKnex(
     name: string,
-    serviceFactory: (knex: Knex.Knex) => { service: LookupService; migrations: Array<Migration> }
+    serviceFactory: (knex: Knex.Knex) => { service: LookupService; migrations: Migration[] }
   ): void {
     this.ensureKnex()
     const factoryResult = serviceFactory(this.knex as Knex.Knex)
@@ -485,7 +485,7 @@ export default class OverlayExpress {
    * Starts the Express server.
    * Sets up routes and begins listening on the configured port.
    */
-  async start() {
+  async start(): Promise<void> {
     this.ensureEngine()
     this.ensureKnex()
     const engine = this.engine as Engine
@@ -676,10 +676,10 @@ export default class OverlayExpress {
         try {
           // Parse out the topics and construct the tagged BEEF
           const topicsHeader = req.headers['x-topics']
-          if (!topicsHeader) {
+          if (typeof topicsHeader !== 'string') {
             throw new Error('Missing x-topics header')
           }
-          const topics = JSON.parse(topicsHeader as string)
+          const topics = JSON.parse(topicsHeader)
           const taggedBEEF: TaggedBEEF = {
             beef: Array.from(req.body as number[]),
             topics
@@ -730,7 +730,7 @@ export default class OverlayExpress {
     })
 
     // ARC ingest route (only if we have an ARC API key)
-    if (this.arcApiKey) {
+    if (typeof this.arcApiKey === 'string' && this.arcApiKey.length > 0) {
       this.app.post('/arc-ingest', (req, res) => {
         ; (async () => {
           try {
@@ -812,14 +812,16 @@ export default class OverlayExpress {
     /**
      * Middleware for checking the admin bearer token.
      */
-    const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
       const authHeader = req.headers['authorization']
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ status: 'error', message: 'Unauthorized: Missing Bearer token' })
+      if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ status: 'error', message: 'Unauthorized: Missing Bearer token' })
+        return
       }
       const token = authHeader.substring('Bearer '.length)
       if (token !== this.adminToken) {
-        return res.status(403).json({ status: 'error', message: 'Forbidden: Invalid Bearer token' })
+        res.status(403).json({ status: 'error', message: 'Forbidden: Invalid Bearer token' })
+        return
       }
       next()
     }
@@ -871,14 +873,23 @@ export default class OverlayExpress {
     })
 
     /**
-     * Admin route to evict an outpoint from a lookup service.
+     * Admin route to evict an outpoint, either from all services or a specific one.
      */
     this.app.post('/admin/evictOutpoint', checkAdminAuth as any, (req, res) => {
       ; (async () => {
         try {
-          const service = engine.lookupServices[req.body.service]
-          if (typeof service.outputDeleted === 'function') {
-            await service.outputDeleted(req.body.txid, req.body.outputIndex, req.body.topic)
+          if (typeof req.body.service === 'string') {
+            const service = engine.lookupServices[req.body.service]
+            await service.outputEvicted(req.body.txid, req.body.outputIndex)
+          } else {
+            const services = Object.values(engine.lookupServices)
+            for (let i = 0; i < services.length; i++) {
+              try {
+                await services[i].outputEvicted(req.body.txid, req.body.outputIndex)
+              } catch {
+                continue
+              }
+            }
           }
           return res.status(200).json({ status: 'success', message: 'Outpoint evicted' })
         } catch (error) {
