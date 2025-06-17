@@ -12,7 +12,8 @@ import {
   OverlayBroadcastFacilitator,
   HTTPSOverlayBroadcastFacilitator,
   DEFAULT_TESTNET_SLAP_TRACKERS,
-  DEFAULT_SLAP_TRACKERS
+  DEFAULT_SLAP_TRACKERS,
+  Utils
 } from '@bsv/sdk'
 import Knex from 'knex'
 import { MongoClient, Db } from 'mongodb'
@@ -676,13 +677,23 @@ export default class OverlayExpress {
         try {
           // Parse out the topics and construct the tagged BEEF
           const topicsHeader = req.headers['x-topics']
+          const includesOffChain = req.headers['x-includes-off-chain-values'] === 'true'
           if (typeof topicsHeader !== 'string') {
             throw new Error('Missing x-topics header')
           }
           const topics = JSON.parse(topicsHeader)
+          let offChainValues: number[] | undefined
+          let beef = Array.from(req.body as number[])
+          if (includesOffChain) {
+            const r = new Utils.Reader(beef)
+            const l = r.readVarIntNum()
+            beef = r.read(l)
+            offChainValues = r.read()
+          }
           const taggedBEEF: TaggedBEEF = {
-            beef: Array.from(req.body as number[]),
-            topics
+            beef,
+            topics,
+            offChainValues
           }
 
           // Using a callback function, we can return once the STEAK is ready
