@@ -172,6 +172,42 @@ export default (config: UIConfig = {}): string => {
       color: var(--link-color);
     }
 
+    /* Code highlighting styles */
+    pre {
+      position: relative;
+      padding: 1em;
+      border-radius: 5px;
+      overflow: auto;
+      background-color: #282c34;
+      margin: 1em 0;
+    }
+    
+    pre[data-language]:before {
+      content: attr(data-language);
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 0.25em 0.5em;
+      font-size: 0.75em;
+      color: #abb2bf;
+      background-color: #3e4451;
+      border-radius: 0 0 0 4px;
+      text-transform: uppercase;
+    }
+    
+    code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.9em;
+    }
+    
+    /* Inline code */
+    p code, li code {
+      background-color: #3e4451;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
     /* Responsive design */
     @media screen and (max-width: 850px) {
       .main {
@@ -191,10 +227,14 @@ export default (config: UIConfig = {}): string => {
     ${additionalStyles}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/showdown@2.0.3/dist/showdown.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/styles/atom-one-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js"></script>
   <script>
     const faviconUrl = '${faviconUrl}';
 
     const showdown = window.showdown;
+    window.hljs.configure({ languages: ['typescript', 'javascript', 'json', 'html', 'css', 'bash', 'markdown'] });
+
 
     const Convert = (md) => {
       let converter = new showdown.Converter({
@@ -221,7 +261,7 @@ export default (config: UIConfig = {}): string => {
         {
           type: 'output',
           filter: function(text) {
-            return text.replace(/<pre><code\s*class="([^"]*)">(.*?)<\/code><\/pre>/gs, function(match, language, content) {
+            return text.replace(/<pre><code\s*class="([^"]*)">(.*?)<\\/code><\\/pre>/gs, function(match, language, content) {
               if (language) {
                 // Clean up the language identifier
                 const lang = language.replace('language-', '').trim();
@@ -242,9 +282,9 @@ export default (config: UIConfig = {}): string => {
     };
     
     // Function to apply syntax highlighting after content is inserted
-    const applyHighlighting = function(): void {
-      document.querySelectorAll('pre code').forEach(function(block) {
-        const blockElement = block as HTMLElement;
+    const applyHighlighting = () => {
+      document.querySelectorAll('pre code').forEach(block => {
+        const blockElement = block;
         
         // Check for language class
         const classList = Array.from(blockElement.classList);
@@ -262,7 +302,7 @@ export default (config: UIConfig = {}): string => {
         // Apply highlighting to all code blocks
         try {
           // @ts-ignore - hljs is loaded from CDN
-          hljs.highlightElement(blockElement);
+          window.hljs.highlightElement(blockElement);
         } catch (e) {
           console.error('Error highlighting code:', e);
         }
@@ -273,7 +313,7 @@ export default (config: UIConfig = {}): string => {
     let providersData = {};
 
     // @ts-ignore - Adding custom property to window
-    window.managerDocumentation = async (manager: string) => {
+    window.managerDocumentation = async (manager) => {
       try {
         let res = await fetch(\`${host}/getDocumentationForTopicManager?manager=\${manager}\`);
         let docs = await res.text();
@@ -301,7 +341,7 @@ export default (config: UIConfig = {}): string => {
     };
 
     // @ts-ignore - Adding custom property to window
-    window.topicDocumentation = async (provider: string) => {
+    window.topicDocumentation = async (provider) => {
       try {
         let res = await fetch(\`${host}/getDocumentationForLookupServiceProvider?lookupService=\${provider}\`);
         let docs = await res.text();
