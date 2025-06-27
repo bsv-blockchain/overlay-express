@@ -12,6 +12,8 @@ const main = async () => {
     
     // Decide what port you want the server to listen on.
     server.listen(8081)
+
+    console.log('Overlay Express demo UI started on http://localhost:8081')
 }
 
 // Happy hacking :)

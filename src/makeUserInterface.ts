@@ -8,18 +8,22 @@ export type UIConfig = {
   headingFontFamily?: string;
   additionalStyles?: string;
   sectionBackgroundColor?: string;
+  primaryTextColor?: string;
   linkColor?: string;
   hoverColor?: string;
   borderColor?: string;
+  secondaryBackgroundColor?: string;
+  secondaryTextColor?: string;
 };
 
 export default (config: UIConfig = {}): string => {
   const {
     host = '',
     faviconUrl = 'https://bsvblockchain.org/favicon.ico',
-    backgroundColor = '#282E33',
-    primaryColor = '#B6C2CF',
-    secondaryColor = '#579DFF',
+    backgroundColor = '#191919',
+    primaryTextColor = '#f0f0f0',
+    primaryColor = '#3b6efb',
+    secondaryColor = '#001242',
     fontFamily = 'Helvetica, Arial, sans-serif',
     headingFontFamily = 'Helvetica, Arial, sans-serif',
     additionalStyles = '',
@@ -27,6 +31,8 @@ export default (config: UIConfig = {}): string => {
     linkColor = '#579DFF',
     hoverColor = '#3A4147',
     borderColor = '#B6C2CF',
+    secondaryBackgroundColor = '#b7b7b7',
+    secondaryTextColor = '#0e0e0e',
   } = config;
 
   return `<!DOCTYPE html>
@@ -47,6 +53,9 @@ export default (config: UIConfig = {}): string => {
       --link-color: ${linkColor};
       --hover-color: ${hoverColor};
       --border-color: ${borderColor};
+      --secondary-background-color: ${secondaryBackgroundColor};
+      --secondary-text-color: ${secondaryTextColor};
+      --primary-text-color: ${primaryTextColor};
     }
 
     body {
@@ -54,7 +63,7 @@ export default (config: UIConfig = {}): string => {
       background-color: var(--background-color);
       margin: 0;
       padding: 0;
-      color: var(--primary-color);
+      color: var(--primary-text-color);
     }
 
     h1, h2, h3 {
@@ -83,63 +92,44 @@ export default (config: UIConfig = {}): string => {
     }
 
     .column_left {
-      width: 35%;
-      background-color: var(--section-background-color);
+      width: 360px;
+      background-color: var(--secondary-background-color);
+      color: var(--secondary-text-color);
     }
 
     .column_right {
-      width: 65%;
-      border-left: 1px solid var(--border-color);
-    }
-
-    .docs_heading {
-      text-align: center;
-      padding-bottom: 0.5em;
-      border-bottom: 1px solid var(--border-color);
+      width: calc(100% - 360px);
     }
 
     /* List styles */
     .list-item {
-      display: flex;
-      align-items: center;
-      margin: 0.5em 0;
+      margin: 0;
     }
 
     .list-item a {
-      display: flex;
-      align-items: center;
+      display: block;
       width: 100%;
-      padding: 0.5em;
+      padding: 0.5em 0.75em;
       background-color: transparent;
       border-radius: 5px;
       transition: background-color 0.3s;
       text-decoration: none;
       color: inherit;
-    }
-
-    .list-item a:hover {
-      background-color: var(--hover-color);
+      font-weight: 500;
       cursor: pointer;
     }
 
-    .list-icon {
-      width: 40px;
-      height: 40px;
-      margin-right: 1em;
+    .list-item a:hover, .list-item a.active {
+      background: var(--primary-color) linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      color: white;
+      cursor: pointer;
+      border-radius: 8px 0 0 8px;
     }
-
-    .list-text {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .list-title {
-      font-weight: bold;
-    }
-
-    .list-description {
-      font-size: 0.9em;
-      color: var(--secondary-color);
+    
+    ul#manager_list, ul#provider_list {
+      list-style-type: none;
+      padding-left: 0;
+      margin-top: 0.5em;
     }
 
     /* Detail styles */
@@ -196,7 +186,7 @@ export default (config: UIConfig = {}): string => {
     }
     
     code {
-      font-family: 'Courier New', Courier, monospace;
+      font-family: Menlo, Monaco, 'Courier New', monospace;
       font-size: 0.9em;
     }
     
@@ -312,6 +302,24 @@ export default (config: UIConfig = {}): string => {
     let managersData = {};
     let providersData = {};
 
+    // Function to update URL hash and highlight selected item
+    const updateSelectedItem = (type: string, id: string) => {
+      // Update URL hash
+      window.location.hash = \`\${type}/\${id}\`;
+      
+      // Remove active class from all list items
+      document.querySelectorAll('.list-item a').forEach(item => {
+        item.classList.remove('active');
+      });
+      
+      // Add active class to selected item
+      const selector = \`[data-\${type}="\${id}"]\`;
+      const selectedItem = document.querySelector(selector);
+      if (selectedItem) {
+        selectedItem.classList.add('active');
+      }
+    };
+
     // @ts-ignore - Adding custom property to window
     window.managerDocumentation = async (manager) => {
       try {
@@ -324,17 +332,9 @@ export default (config: UIConfig = {}): string => {
 
         document.getElementById('documentation_container').innerHTML = managerReadme;
         applyHighlighting();
-        document.getElementById('documentation_title').innerHTML = \`
-          <div class="detail-header">
-            <img src="\${iconURL}" alt="icon" class="detail-icon">
-            <div class="detail-text">
-              <h1 class="detail-title">\${managerData.name}</h1>
-              <p class="detail-description">\${managerData.shortDescription || ''}</p>
-              \${managerData.version ? '<p class="detail-version">Version: ' + managerData.version + '</p>' : ''}
-              \${managerData.informationURL ? '<p class="detail-info"><a href="' + managerData.informationURL + '" target="_blank">More Information</a></p>' : ''}
-            </div>
-          </div>
-        \`;
+        
+        // Update active item and URL
+        updateSelectedItem('manager', manager);
       } catch (error) {
         console.error('Error fetching manager documentation:', error);
       }
@@ -352,17 +352,9 @@ export default (config: UIConfig = {}): string => {
 
         document.getElementById('documentation_container').innerHTML = providerReadme;
         applyHighlighting();
-        document.getElementById('documentation_title').innerHTML = \`
-          <div class="detail-header">
-            <img src="\${iconURL}" alt="icon" class="detail-icon">
-            <div class="detail-text">
-              <h1 class="detail-title">\${providerData.name}</h1>
-              <p class="detail-description">\${providerData.shortDescription || ''}</p>
-              \${providerData.version ? '<p class="detail-version">Version: ' + providerData.version + '</p>' : ''}
-              \${providerData.informationURL ? '<p class="detail-info"><a href="' + providerData.informationURL + '" target="_blank">More Information</a></p>' : ''}
-            </div>
-          </div>
-        \`;
+        
+        // Update active item and URL
+        updateSelectedItem('provider', provider);
       } catch (error) {
         console.error('Error fetching provider documentation:', error);
       }
@@ -376,16 +368,11 @@ export default (config: UIConfig = {}): string => {
           const managerList = document.getElementById('manager_list');
           Object.keys(managers).forEach(manager => {
             let managerData = managers[manager];
-            let iconURL = managerData.iconURL || faviconUrl;
             let li = document.createElement('li');
             li.className = 'list-item';
             li.innerHTML = \`
-              <a onclick="window.managerDocumentation('\${manager}')">
-                <img src="\${iconURL}" alt="icon" class="list-icon">
-                <div class="list-text">
-                  <span class="list-title">\${managerData.name}</span>
-                  <span class="list-description">\${managerData.shortDescription || ''}</span>
-                </div>
+              <a data-manager="\${manager}" onclick="window.managerDocumentation('\${manager}')">
+                \${managerData.name}
               </a>
             \`;
             managerList.appendChild(li);
@@ -404,16 +391,11 @@ export default (config: UIConfig = {}): string => {
           const providerList = document.getElementById('provider_list');
           Object.keys(providers).forEach(provider => {
             let providerData = providers[provider];
-            let iconURL = providerData.iconURL || faviconUrl;
             let li = document.createElement('li');
             li.className = 'list-item';
             li.innerHTML = \`
-              <a onclick="window.topicDocumentation('\${provider}')">
-                <img src="\${iconURL}" alt="icon" class="list-icon">
-                <div class="list-text">
-                  <span class="list-title">\${providerData.name}</span>
-                  <span class="list-description">\${providerData.shortDescription || ''}</span>
-                </div>
+              <a data-provider="\${provider}" onclick="window.topicDocumentation('\${provider}')">
+                \${providerData.name}
               </a>
             \`;
             providerList.appendChild(li);
@@ -425,8 +407,32 @@ export default (config: UIConfig = {}): string => {
           provider_list.insertBefore(message, provider_list.children[0]);
         });
 
-      // Display default message when no manager or provider is selected
-      document.getElementById('documentation_container').innerHTML = '<p>Please select a manager or service from the left to see details.</p>';
+      // Check URL hash to see if we should load specific documentation
+      const checkUrlHash = () => {
+        const hash = window.location.hash.substring(1); // Remove the # symbol
+        if (hash) {
+          const parts = hash.split('/');
+          if (parts.length === 2) {
+            const type = parts[0];
+            const id = parts[1];
+            
+            if (type === 'manager' && id && managersData[id]) {
+              window.managerDocumentation(id);
+            } else if (type === 'provider' && id && providersData[id]) {
+              window.topicDocumentation(id);
+            }
+          }
+        } else {
+          // Display default message when no manager or provider is selected
+          document.getElementById('documentation_container').innerHTML = '<p>Please select a manager or service from the left to see details.</p>';
+        }
+      };
+      
+      // Listen for hash changes
+      window.addEventListener('hashchange', checkUrlHash);
+      
+      // Check hash on initial page load
+      checkUrlHash();
     });
   </script>
 </head>
@@ -436,19 +442,18 @@ export default (config: UIConfig = {}): string => {
     <div class="column_left">
       <div class="page_head">
         <h1>Overlay Services</h1>
-        <p>Learn more on <a href="https://github.com/bsv-blockchain/overlay-services" target="_blank">GitHub</a></p>
       </div>
       <div class="topic_container">
-        <h3>Topic Managers:</h3>
+        <h3>Topic Managers</h3>
         <ul id="manager_list"></ul>
       </div>
       <div class="provider_container">
-        <h3>Lookup Services:</h3>
+        <h3>Lookup Services</h3>
         <ul id="provider_list"></ul>
       </div>
+      <p>Learn more on <a style="color: var(--secondary-text-color)" href="https://github.com/bsv-blockchain/overlay-services" target="_blank">GitHub</a></p>
     </div>
     <div class="column_right">
-      <div id="documentation_title"></div>
       <div id="documentation_container" style="margin-left: 1.5em"></div>
     </div>
   </div>
