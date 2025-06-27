@@ -1,4 +1,5 @@
 export type UIConfig = {
+  host?: string;
   faviconUrl?: string;
   backgroundColor?: string;
   primaryColor?: string;
@@ -14,12 +15,13 @@ export type UIConfig = {
 
 export default (config: UIConfig = {}): string => {
   const {
+    host = '',
     faviconUrl = 'https://bsvblockchain.org/favicon.ico',
     backgroundColor = '#282E33',
     primaryColor = '#B6C2CF',
     secondaryColor = '#579DFF',
-    fontFamily = 'Arial, sans-serif',
-    headingFontFamily = 'Arial Black, Gadget, sans-serif',
+    fontFamily = 'Helvetica, Arial, sans-serif',
+    headingFontFamily = 'Helvetica, Arial, sans-serif',
     additionalStyles = '',
     sectionBackgroundColor = '#323940',
     linkColor = '#579DFF',
@@ -188,23 +190,101 @@ export default (config: UIConfig = {}): string => {
 
     ${additionalStyles}
   </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github-dark.css">
   <script src="https://cdn.jsdelivr.net/npm/showdown@2.0.3/dist/showdown.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/javascript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/shell.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/http.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/markdown.min.js"></script>
   <script>
     const faviconUrl = '${faviconUrl}';
 
     const showdown = window.showdown;
 
     const Convert = (md) => {
-      let converter = new showdown.Converter();
-      return converter.makeHtml(md);
+      let converter = new showdown.Converter({
+        ghCompatibleHeaderId: true,
+        simpleLineBreaks: true,
+        ghMentions: true,
+        tables: true,
+        tasklists: true,
+        strikethrough: true,
+        parseImgDimensions: true,
+        simplifiedAutoLink: true
+      });
+      // Set to use GitHub flavor markdown
+      converter.setFlavor('github');
+      
+      // Set language detection for code blocks
+      converter.setOption('ghCodeBlocks', true);
+      converter.setOption('omitExtraWLInCodeBlocks', true);
+      converter.setOption('literalMidWordUnderscores', true);
+      converter.setOption('parseImgDimensions', true);
+      
+      // Add custom extension for adding language-specific class to code blocks
+      const codeExtension = () => [
+        {
+          type: 'output',
+          filter: function(text) {
+            return text.replace(/<pre><code\s*class="([^"]*)">(.*?)<\/code><\/pre>/gs, function(match, language, content) {
+              if (language) {
+                // Clean up the language identifier
+                const lang = language.replace('language-', '').trim();
+                return \`<pre data-language="\${lang}"><code class="language-\${lang} hljs">\${content}</code></pre>\`;
+              } else {
+                return \`<pre><code class="hljs">\${content}</code></pre>\`;
+              }
+            });
+          }
+        }
+      ];
+      
+      // Add the extension
+      converter.addExtension(codeExtension());
+      const html = converter.makeHtml(md);
+      
+      return html;
+    };
+    
+    // Function to apply syntax highlighting after content is inserted
+    const applyHighlighting = function(): void {
+      document.querySelectorAll('pre code').forEach(function(block) {
+        const blockElement = block as HTMLElement;
+        
+        // Check for language class
+        const classList = Array.from(blockElement.classList);
+        const langClass = classList.find(cls => cls.startsWith('language-'));
+        
+        if (langClass) {
+          const language = langClass.replace('language-', '');
+          // Set language label on the parent pre element
+          const preElement = blockElement.parentElement;
+          if (preElement) {
+            preElement.setAttribute('data-language', language);
+          }
+        }
+        
+        // Apply highlighting to all code blocks
+        try {
+          // @ts-ignore - hljs is loaded from CDN
+          hljs.highlightElement(blockElement);
+        } catch (e) {
+          console.error('Error highlighting code:', e);
+        }
+      });
     };
 
     let managersData = {};
     let providersData = {};
 
-    window.managerDocumentation = async (manager) => {
+    // @ts-ignore - Adding custom property to window
+    window.managerDocumentation = async (manager: string) => {
       try {
-        let res = await fetch(\`/getDocumentationForTopicManager?manager=\${manager}\`);
+        let res = await fetch(\`${host}/getDocumentationForTopicManager?manager=\${manager}\`);
         let docs = await res.text();
         let managerReadme = Convert(docs);
 
@@ -212,6 +292,7 @@ export default (config: UIConfig = {}): string => {
         let iconURL = managerData.iconURL || faviconUrl;
 
         document.getElementById('documentation_container').innerHTML = managerReadme;
+        applyHighlighting();
         document.getElementById('documentation_title').innerHTML = \`
           <div class="detail-header">
             <img src="\${iconURL}" alt="icon" class="detail-icon">
@@ -228,9 +309,10 @@ export default (config: UIConfig = {}): string => {
       }
     };
 
-    window.topicDocumentation = async (provider) => {
+    // @ts-ignore - Adding custom property to window
+    window.topicDocumentation = async (provider: string) => {
       try {
-        let res = await fetch(\`/getDocumentationForLookupServiceProvider?lookupService=\${provider}\`);
+        let res = await fetch(\`${host}/getDocumentationForLookupServiceProvider?lookupService=\${provider}\`);
         let docs = await res.text();
         let providerReadme = Convert(docs);
 
@@ -238,6 +320,7 @@ export default (config: UIConfig = {}): string => {
         let iconURL = providerData.iconURL || faviconUrl;
 
         document.getElementById('documentation_container').innerHTML = providerReadme;
+        applyHighlighting();
         document.getElementById('documentation_title').innerHTML = \`
           <div class="detail-header">
             <img src="\${iconURL}" alt="icon" class="detail-icon">
@@ -255,7 +338,7 @@ export default (config: UIConfig = {}): string => {
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-      fetch('/listTopicManagers')
+      fetch('${host}/listTopicManagers')
         .then(res => res.json())
         .then(managers => {
           managersData = managers;
@@ -283,7 +366,7 @@ export default (config: UIConfig = {}): string => {
           manager_list.insertBefore(message, manager_list.children[0]);
         });
 
-      fetch('/listLookupServiceProviders')
+      fetch('${host}/listLookupServiceProviders')
         .then(res => res.json())
         .then(providers => {
           providersData = providers;
@@ -321,16 +404,15 @@ export default (config: UIConfig = {}): string => {
   <div class="main">
     <div class="column_left">
       <div class="page_head">
-        <h1>Welcome to Overlay Services</h1>
-        <p>Learn more on <a href="https://github.com/bitcoin-sv/overlay-services" target="_blank">GitHub</a></p>
+        <h1>Overlay Services</h1>
+        <p>Learn more on <a href="https://github.com/bsv-blockchain/overlay-services" target="_blank">GitHub</a></p>
       </div>
       <div class="topic_container">
-        <h2>Endpoint Documentation:</h2>
-        <h3>Supported Topic Managers:</h3>
+        <h3>Topic Managers:</h3>
         <ul id="manager_list"></ul>
       </div>
       <div class="provider_container">
-        <h3>Supported Lookup Service Providers:</h3>
+        <h3>Lookup Services:</h3>
         <ul id="provider_list"></ul>
       </div>
     </div>
