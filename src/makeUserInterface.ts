@@ -303,7 +303,7 @@ export default (config: UIConfig = {}): string => {
     let providersData = {};
 
     // Function to update URL hash and highlight selected item
-    const updateSelectedItem = (type: string, id: string) => {
+    const updateSelectedItem = (type, id) => {
       // Update URL hash
       window.location.hash = \`\${type}/\${id}\`;
       
