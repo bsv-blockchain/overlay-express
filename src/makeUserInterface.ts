@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 export type UIConfig = {
   host?: string;
   faviconUrl?: string;
@@ -14,7 +17,10 @@ export type UIConfig = {
   borderColor?: string;
   secondaryBackgroundColor?: string;
   secondaryTextColor?: string;
+  defaultContent?: string;
 };
+
+const generalGuide = fs.readFileSync(path.join('generalGuide.md'), 'utf-8');
 
 export default (config: UIConfig = {}): string => {
   const {
@@ -31,8 +37,9 @@ export default (config: UIConfig = {}): string => {
     linkColor = '#579DFF',
     hoverColor = '#3A4147',
     borderColor = '#B6C2CF',
-    secondaryBackgroundColor = '#b7b7b7',
+    secondaryBackgroundColor = '#f8f8f8',
     secondaryTextColor = '#0e0e0e',
+    defaultContent = String(generalGuide)
   } = config;
 
   return `<!DOCTYPE html>
@@ -70,6 +77,13 @@ export default (config: UIConfig = {}): string => {
       font-family: var(--heading-font-family);
     }
 
+    .welcome {
+      background-clip: text;
+      color: transparent;
+      background-image: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      cursor: pointer;
+    }
+
     a {
       color: var(--link-color);
       text-decoration: none;
@@ -86,12 +100,14 @@ export default (config: UIConfig = {}): string => {
       overflow: hidden;
     }
 
-    .column_left, .column_right {
+    .column_right {
       padding: 1.5em;
       overflow-y: auto;
     }
 
     .column_left {
+      padding: 15px 15px 15px 35px;
+      overflow-y: auto;
       width: 360px;
       background-color: var(--secondary-background-color);
       color: var(--secondary-text-color);
@@ -99,6 +115,11 @@ export default (config: UIConfig = {}): string => {
 
     .column_right {
       width: calc(100% - 360px);
+    }
+
+    #documentation_container {
+      padding: 0 8em;
+      margin: 0;
     }
 
     /* List styles */
@@ -126,7 +147,7 @@ export default (config: UIConfig = {}): string => {
       border-radius: 8px 0 0 8px;
     }
     
-    ul#manager_list, ul#provider_list {
+    ul#manager_list, ul#provider_list, ul#external_list {
       list-style-type: none;
       padding-left: 0;
       margin-top: 0.5em;
@@ -269,6 +290,14 @@ export default (config: UIConfig = {}): string => {
       const html = converter.makeHtml(md);
       
       return html;
+    };
+
+    window.returnHome = () => {
+      if (!window.defaultHtml) {
+        window.defaultHtml = Convert(\`${defaultContent}\`);
+      }
+      document.getElementById('documentation_container').innerHTML = window.defaultHtml;
+      window.location.hash = '';
     };
     
     // Function to apply syntax highlighting after content is inserted
@@ -463,7 +492,7 @@ export default (config: UIConfig = {}): string => {
           }
         } else {
           // Display default message when no manager or provider is selected
-          document.getElementById('documentation_container').innerHTML = '<p>Please select a manager or service from the left to see details.</p>';
+          returnHome();
         }
       };
       
@@ -480,7 +509,7 @@ export default (config: UIConfig = {}): string => {
   <div class="main">
     <div class="column_left">
       <div class="page_head">
-        <h1>Overlay Services</h1>
+        <h1 class="welcome" onclick="window.returnHome()">Overlay Services</h1>
       </div>
       <div class="topic_container">
         <h3>Topic Managers</h3>
@@ -490,10 +519,17 @@ export default (config: UIConfig = {}): string => {
         <h3>Lookup Services</h3>
         <ul id="provider_list"></ul>
       </div>
-      <p>Learn more on <a style="color: var(--secondary-text-color)" href="https://github.com/bsv-blockchain/overlay-services" target="_blank">GitHub</a></p>
+      <div>
+      <h3>External Links</h3>
+        <ul id="external_list">
+          <li class="list-item"><a href="https://github.com/bsv-blockchain/overlay-services" target="_blank">Overlay Services GitHub</a></li>
+          <li class="list-item"><a href="https://bsv.brc.dev/overlays/0088" target="_blank">BRC-88 GASP</a></li>
+          <li class="list-item"><a href="https://fast.brc.dev" target="_blank">Quick Start for App Developers</a></li>
+        </ul>
+      </div>
     </div>
     <div class="column_right">
-      <div id="documentation_container" style="margin-left: 1.5em"></div>
+      <div id="documentation_container"></div>
     </div>
   </div>
 </body>
