@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import generalGuide from './generalGuide.md.js'
 
 export type UIConfig = {
   host?: string;
@@ -20,8 +19,6 @@ export type UIConfig = {
   defaultContent?: string;
 };
 
-const generalGuide = fs.readFileSync(path.join('generalGuide.md'), 'utf-8');
-
 export default (config: UIConfig = {}): string => {
   const {
     host = '',
@@ -39,7 +36,7 @@ export default (config: UIConfig = {}): string => {
     borderColor = '#B6C2CF',
     secondaryBackgroundColor = '#f8f8f8',
     secondaryTextColor = '#0e0e0e',
-    defaultContent = String(generalGuide)
+    defaultContent = generalGuide
   } = config;
 
   return `<!DOCTYPE html>
@@ -75,6 +72,10 @@ export default (config: UIConfig = {}): string => {
 
     h1, h2, h3 {
       font-family: var(--heading-font-family);
+    }
+
+    p {
+      line-height: 1.5;
     }
 
     .welcome {
@@ -225,13 +226,19 @@ export default (config: UIConfig = {}): string => {
         flex-direction: column;
       }
 
-      .column_left, .column_right {
-        width: 100%;
+      .column_left {
+        max-height: 30vh;
       }
 
-      .column_right {
-        border-left: none;
-        border-top: 1px solid var(--border-color);
+      .column_left, .column_right {
+        width: 90%;
+        margin: 0;
+        padding: 0 5%;
+      }
+
+      #documentation_container {
+        margin: 0;
+        padding: 0;
       }
     }
 
@@ -294,10 +301,14 @@ export default (config: UIConfig = {}): string => {
 
     window.returnHome = () => {
       if (!window.defaultHtml) {
-        window.defaultHtml = Convert(\`${defaultContent}\`);
+        let newStuff = Convert(${defaultContent});
+        window.defaultHtml = newStuff;
       }
       document.getElementById('documentation_container').innerHTML = window.defaultHtml;
       window.location.hash = '';
+      document.querySelectorAll('.list-item a').forEach(item => {
+        item.classList.remove('active');
+      });
     };
     
     // Function to apply syntax highlighting after content is inserted

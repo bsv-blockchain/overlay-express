@@ -34,7 +34,7 @@
     "dev": "tsc -b -w",
     "prepublish": "npm run build",
     "doc": "ts2md --inputFilename=mod.ts --outputFilename=API.md --filenameSubstring=API --firstHeadingLevel=1",
-    "demo": "npm run build; npx tsx demo-ui.ts"
+    "demo": "rm -r dist && npm run build && npx tsx demo-ui.ts"
   },
   "repository": {
     "type": "git",
