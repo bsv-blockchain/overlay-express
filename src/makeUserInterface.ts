@@ -360,7 +360,38 @@ export default (config: UIConfig = {}): string => {
       }
     };
 
+    // Function to parse hash and load appropriate content
+    const handleUrlHash = () => {
+      const hash = window.location.hash.substring(1); // Remove the # character
+      if (hash) {
+        const [type, id] = hash.split('/');
+        if (type && id) {
+          if (type === 'manager') {
+            // Check if managers data is loaded
+            if (Object.keys(managersData).length > 0 && managersData[id]) {
+              window.managerDocumentation(id);
+            }
+          } else if (type === 'provider') {
+            // Check if providers data is loaded
+            if (Object.keys(providersData).length > 0 && providersData[id]) {
+              window.topicDocumentation(id);
+            }
+          }
+        }
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
+      let managersLoaded = false;
+      let providersLoaded = false;
+
+      // Check if both managers and providers are loaded before handling hash
+      const checkAllLoaded = () => {
+        if (managersLoaded && providersLoaded) {
+          handleUrlHash();
+        }
+      };
+
       fetch('${host}/listTopicManagers')
         .then(res => res.json())
         .then(managers => {
@@ -377,11 +408,15 @@ export default (config: UIConfig = {}): string => {
             \`;
             managerList.appendChild(li);
           });
+          managersLoaded = true;
+          checkAllLoaded();
         })
         .catch(() => {
           let message = document.createElement('h4');
           message.innerText = 'Something went wrong!';
           manager_list.insertBefore(message, manager_list.children[0]);
+          managersLoaded = true;
+          checkAllLoaded();
         });
 
       fetch('${host}/listLookupServiceProviders')
@@ -400,11 +435,15 @@ export default (config: UIConfig = {}): string => {
             \`;
             providerList.appendChild(li);
           });
+          providersLoaded = true;
+          checkAllLoaded();
         })
         .catch(() => {
           let message = document.createElement('h4');
           message.innerText = 'Something went wrong!';
           provider_list.insertBefore(message, provider_list.children[0]);
+          providersLoaded = true;
+          checkAllLoaded();
         });
 
       // Check URL hash to see if we should load specific documentation
