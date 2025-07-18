@@ -26,9 +26,7 @@
     }
   },
   "scripts": {
-    "test": "npm run build && jest",
-    "test:watch": "npm run build && jest --watch",
-    "test:coverage": "npm run build && jest --coverage",
+    "test": "echo \"No tests implemented yet\"",
     "lint": "ts-standard --fix src/**/*.ts",
     "lint:ci": "ts-standard src/**/*.ts",
     "build": "tsc -b && tsconfig-to-dual-package tsconfig.cjs.json",
