@@ -303,7 +303,7 @@ export default class OverlayExpress {
     serviceFactory: (knex: Knex.Knex) => { service: LookupService, migrations: Migration[] }
   ): void {
     this.ensureKnex()
-    const factoryResult = serviceFactory(this.knex)
+    const factoryResult = serviceFactory(this.knex!)
     this.services[name] = factoryResult.service
     this.migrationsToRun.push(...factoryResult.migrations)
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with Knex`))
@@ -316,7 +316,7 @@ export default class OverlayExpress {
    */
   configureLookupServiceWithMongo (name: string, serviceFactory: (mongoDb: Db) => LookupService): void {
     this.ensureMongo()
-    this.services[name] = serviceFactory(this.mongoDb)
+    this.services[name] = serviceFactory(this.mongoDb!)
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with MongoDB`))
   }
 
@@ -377,7 +377,7 @@ export default class OverlayExpress {
     }
 
     // Build the actual Storage
-    const storage = new KnexStorage(this.knex)
+    const storage = new KnexStorage(this.knex!)
     // Include the KnexStorage migrations
     this.migrationsToRun = [...KnexStorageMigrations.default, ...this.migrationsToRun]
 
@@ -489,8 +489,8 @@ export default class OverlayExpress {
   async start (): Promise<void> {
     this.ensureEngine()
     this.ensureKnex()
-    const engine = this.engine
-    const knex = this.knex
+    const engine = this.engine!
+    const knex = this.knex!
 
     this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
     this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
