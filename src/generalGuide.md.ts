@@ -10,7 +10,7 @@ A Topic Manager controls addition and removal of transaction outputs to an Overl
 #### Request Headers
 \\\`\\\`\\\`json
 {
-  "x-topics": "[\"tm_messagebox\"]", // array of topic identifiers as stringified JSON
+  "x-topics": "["tm_messagebox"]", // array of topic identifiers as stringified JSON
   "x-includes-off-chain-values": "false" // string "true" or "false"
 }
 \\\`\\\`\\\`
@@ -71,4 +71,4 @@ Usually Topic Managers and Lookup Services are paired, but they can be separated
 <br />
 <br />
 \`
-`;
+`

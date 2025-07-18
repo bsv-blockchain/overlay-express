@@ -1,23 +1,23 @@
 import generalGuide from './generalGuide.md.js'
 
-export type UIConfig = {
-  host?: string;
-  faviconUrl?: string;
-  backgroundColor?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  fontFamily?: string;
-  headingFontFamily?: string;
-  additionalStyles?: string;
-  sectionBackgroundColor?: string;
-  primaryTextColor?: string;
-  linkColor?: string;
-  hoverColor?: string;
-  borderColor?: string;
-  secondaryBackgroundColor?: string;
-  secondaryTextColor?: string;
-  defaultContent?: string;
-};
+export interface UIConfig {
+  host?: string
+  faviconUrl?: string
+  backgroundColor?: string
+  primaryColor?: string
+  secondaryColor?: string
+  fontFamily?: string
+  headingFontFamily?: string
+  additionalStyles?: string
+  sectionBackgroundColor?: string
+  primaryTextColor?: string
+  linkColor?: string
+  hoverColor?: string
+  borderColor?: string
+  secondaryBackgroundColor?: string
+  secondaryTextColor?: string
+  defaultContent?: string
+}
 
 export default (config: UIConfig = {}): string => {
   const {
@@ -37,7 +37,7 @@ export default (config: UIConfig = {}): string => {
     secondaryBackgroundColor = '#f8f8f8',
     secondaryTextColor = '#0e0e0e',
     defaultContent = generalGuide
-  } = config;
+  } = config
 
   return `<!DOCTYPE html>
 <html>
@@ -544,5 +544,5 @@ export default (config: UIConfig = {}): string => {
     </div>
   </div>
 </body>
-</html>`;
-};
+</html>`
+}

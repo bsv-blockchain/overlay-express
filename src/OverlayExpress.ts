@@ -37,14 +37,14 @@ interface Migration {
  * Allows running migrations defined in code rather than files.
  */
 class InMemoryMigrationSource implements Knex.Knex.MigrationSource<Migration> {
-  constructor(private readonly migrations: Migration[]) { }
+  constructor (private readonly migrations: Migration[]) { }
 
   /**
    * Gets the list of migrations.
    * @param loadExtensions - Array of file extensions to filter by (not used here)
    * @returns Promise resolving to the array of migrations
    */
-  async getMigrations(loadExtensions: readonly string[]): Promise<Migration[]> {
+  async getMigrations (loadExtensions: readonly string[]): Promise<Migration[]> {
     return this.migrations
   }
 
@@ -53,7 +53,7 @@ class InMemoryMigrationSource implements Knex.Knex.MigrationSource<Migration> {
    * @param migration - The migration object
    * @returns The name of the migration
    */
-  getMigrationName(migration: Migration): string {
+  getMigrationName (migration: Migration): string {
     return typeof migration.name === 'string' ? migration.name : `Migration at index ${this.migrations.indexOf(migration)}`
   }
 
@@ -62,7 +62,7 @@ class InMemoryMigrationSource implements Knex.Knex.MigrationSource<Migration> {
    * @param migration - The migration object
    * @returns Promise resolving to the migration object
    */
-  async getMigration(migration: Migration): Promise<Knex.Knex.Migration> {
+  async getMigration (migration: Migration): Promise<Knex.Knex.Migration> {
     return await Promise.resolve(migration)
   }
 }
@@ -152,7 +152,7 @@ export default class OverlayExpress {
    * @param adminToken - Optional. An administrative Bearer token used to protect admin routes.
    *                     If not provided, a random token will be generated at runtime.
    */
-  constructor(
+  constructor (
     public name: string,
     public privateKey: string,
     public advertisableFQDN: string,
@@ -160,13 +160,13 @@ export default class OverlayExpress {
   ) {
     this.app = express()
     this.logger.log(chalk.green.bold(`${name} constructed 🎉`))
-    this.adminToken = adminToken || uuidv4() // generate random if not provided
+    this.adminToken = adminToken ?? uuidv4() // generate random if not provided
   }
 
   /**
    * Returns the current admin token in case you need to programmatically retrieve or display it.
    */
-  getAdminToken(): string {
+  getAdminToken (): string {
     return this.adminToken
   }
 
@@ -174,7 +174,7 @@ export default class OverlayExpress {
    * Configures the port on which the server will listen.
    * @param port - The port number
    */
-  configurePort(port: number): void {
+  configurePort (port: number): void {
     this.port = port
     this.logger.log(chalk.blue(`🌐 Server port set to ${port}`))
   }
@@ -183,7 +183,7 @@ export default class OverlayExpress {
    * Configures the web user interface
    * @param config - Web UI configuration options
    */
-  configureWebUI(config: UIConfig): void {
+  configureWebUI (config: UIConfig): void {
     this.webUIConfig = config
     this.logger.log(chalk.blue('🖥️ Web UI has been configured.'))
   }
@@ -192,7 +192,7 @@ export default class OverlayExpress {
    * Configures the logger to be used by the server.
    * @param logger - A logger object (e.g., console)
    */
-  configureLogger(logger: typeof console): void {
+  configureLogger (logger: typeof console): void {
     this.logger = logger
     this.logger.log(chalk.blue('🔍 Logger has been configured.'))
   }
@@ -202,7 +202,7 @@ export default class OverlayExpress {
    * By default, it re-initializes chainTracker as a WhatsOnChain for that network.
    * @param network - The network ('main' or 'test')
    */
-  configureNetwork(network: 'main' | 'test'): void {
+  configureNetwork (network: 'main' | 'test'): void {
     this.network = network
     this.chainTracker = new WhatsOnChain(this.network)
     this.logger.log(chalk.blue(`🔗 Network set to ${network}`))
@@ -213,7 +213,7 @@ export default class OverlayExpress {
    * If 'scripts only' is used, it implies no full SPV chain tracking in the Engine.
    * @param chainTracker - An instance of ChainTracker or 'scripts only'
    */
-  configureChainTracker(chainTracker: ChainTracker | 'scripts only' = new WhatsOnChain(this.network)): void {
+  configureChainTracker (chainTracker: ChainTracker | 'scripts only' = new WhatsOnChain(this.network)): void {
     this.chainTracker = chainTracker
     this.logger.log(chalk.blue('🔗 ChainTracker has been configured.'))
   }
@@ -222,7 +222,7 @@ export default class OverlayExpress {
    * Configures the ARC API key.
    * @param apiKey - The ARC API key
    */
-  configureArcApiKey(apiKey: string): void {
+  configureArcApiKey (apiKey: string): void {
     this.arcApiKey = apiKey
     this.logger.log(chalk.blue('🔑 ARC API key has been configured.'))
   }
@@ -232,7 +232,7 @@ export default class OverlayExpress {
    * This is a broad toggle that can be overridden or customized through syncConfiguration.
    * @param enable - true to enable, false to disable
    */
-  configureEnableGASPSync(enable: boolean): void {
+  configureEnableGASPSync (enable: boolean): void {
     this.enableGASPSync = enable
     this.logger.log(chalk.blue(`🔄 GASP synchronization ${enable ? 'enabled' : 'disabled'}.`))
   }
@@ -241,7 +241,7 @@ export default class OverlayExpress {
    * Enables or disables verbose request logging.
    * @param enable - true to enable, false to disable
    */
-  configureVerboseRequestLogging(enable: boolean): void {
+  configureVerboseRequestLogging (enable: boolean): void {
     this.verboseRequestLogging = enable
     this.logger.log(chalk.blue(`📝 Verbose request logging ${enable ? 'enabled' : 'disabled'}.`))
   }
@@ -250,7 +250,7 @@ export default class OverlayExpress {
    * Configure Knex (SQL) database connection.
    * @param config - Knex configuration object, or MySQL connection string (e.g. mysql://overlayAdmin:overlay123@mysql:3306/overlay).
    */
-  async configureKnex(config: Knex.Knex.Config | string): Promise<void> {
+  async configureKnex (config: Knex.Knex.Config | string): Promise<void> {
     if (typeof config === 'string') {
       config = {
         client: 'mysql2',
@@ -265,7 +265,7 @@ export default class OverlayExpress {
    * Configures the MongoDB database connection.
    * @param connectionString - MongoDB connection string
    */
-  async configureMongo(connectionString: string): Promise<void> {
+  async configureMongo (connectionString: string): Promise<void> {
     const mongoClient = new MongoClient(connectionString)
     await mongoClient.connect()
     const db = mongoClient.db(`${this.name}_lookup_services`)
@@ -278,7 +278,7 @@ export default class OverlayExpress {
    * @param name - The name of the Topic Manager
    * @param manager - An instance of TopicManager
    */
-  configureTopicManager(name: string, manager: TopicManager): void {
+  configureTopicManager (name: string, manager: TopicManager): void {
     this.managers[name] = manager
     this.logger.log(chalk.blue(`🗂️ Configured topic manager ${name}`))
   }
@@ -288,7 +288,7 @@ export default class OverlayExpress {
    * @param name - The name of the Lookup Service
    * @param service - An instance of LookupService
    */
-  configureLookupService(name: string, service: LookupService): void {
+  configureLookupService (name: string, service: LookupService): void {
     this.services[name] = service
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name}`))
   }
@@ -298,12 +298,12 @@ export default class OverlayExpress {
    * @param name - The name of the Lookup Service
    * @param serviceFactory - A factory function that creates a LookupService instance using Knex
    */
-  configureLookupServiceWithKnex(
+  configureLookupServiceWithKnex (
     name: string,
-    serviceFactory: (knex: Knex.Knex) => { service: LookupService; migrations: Migration[] }
+    serviceFactory: (knex: Knex.Knex) => { service: LookupService, migrations: Migration[] }
   ): void {
     this.ensureKnex()
-    const factoryResult = serviceFactory(this.knex as Knex.Knex)
+    const factoryResult = serviceFactory(this.knex)
     this.services[name] = factoryResult.service
     this.migrationsToRun.push(...factoryResult.migrations)
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with Knex`))
@@ -314,9 +314,9 @@ export default class OverlayExpress {
    * @param name - The name of the Lookup Service
    * @param serviceFactory - A factory function that creates a LookupService instance using MongoDB
    */
-  configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService): void {
+  configureLookupServiceWithMongo (name: string, serviceFactory: (mongoDb: Db) => LookupService): void {
     this.ensureMongo()
-    this.services[name] = serviceFactory(this.mongoDb as Db)
+    this.services[name] = serviceFactory(this.mongoDb)
     this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with MongoDB`))
   }
 
@@ -334,7 +334,7 @@ export default class OverlayExpress {
    * These fields will be respected when we finally build/configure the Engine
    * in the `configureEngine()` method below.
    */
-  configureEngineParams(params: EngineConfig): void {
+  configureEngineParams (params: EngineConfig): void {
     this.engineConfig = {
       ...this.engineConfig,
       ...params
@@ -349,7 +349,7 @@ export default class OverlayExpress {
    *
    * @param autoConfigureShipSlap - Whether to auto-configure SHIP and SLAP services (default: true)
    */
-  async configureEngine(autoConfigureShipSlap = true): Promise<void> {
+  async configureEngine (autoConfigureShipSlap = true): Promise<void> {
     this.ensureKnex()
 
     if (autoConfigureShipSlap) {
@@ -373,11 +373,11 @@ export default class OverlayExpress {
       }
     } else {
       // If the user provided a syncConfiguration, use that. Otherwise default to an empty object.
-      syncConfig = this.engineConfig.syncConfiguration || {}
+      syncConfig = this.engineConfig.syncConfiguration ?? {}
     }
 
     // Build the actual Storage
-    const storage = new KnexStorage(this.knex as Knex.Knex)
+    const storage = new KnexStorage(this.knex)
     // Include the KnexStorage migrations
     this.migrationsToRun = [...KnexStorageMigrations.default, ...this.migrationsToRun]
 
@@ -456,7 +456,7 @@ export default class OverlayExpress {
    * Ensures that Knex is configured.
    * @throws Error if Knex is not configured
    */
-  private ensureKnex(): void {
+  private ensureKnex (): void {
     if (typeof this.knex === 'undefined') {
       throw new Error('You must configure your SQL database with the .configureKnex() method first!')
     }
@@ -466,7 +466,7 @@ export default class OverlayExpress {
    * Ensures that MongoDB is configured.
    * @throws Error if MongoDB is not configured
    */
-  private ensureMongo(): void {
+  private ensureMongo (): void {
     if (typeof this.mongoDb === 'undefined') {
       throw new Error('You must configure your MongoDB connection with the .configureMongo() method first!')
     }
@@ -476,7 +476,7 @@ export default class OverlayExpress {
    * Ensures that the Overlay Engine is configured.
    * @throws Error if the Engine is not configured
    */
-  private ensureEngine(): void {
+  private ensureEngine (): void {
     if (typeof this.engine === 'undefined') {
       throw new Error('You must configure your Overlay Services engine with the .configureEngine() method first!')
     }
@@ -486,11 +486,11 @@ export default class OverlayExpress {
    * Starts the Express server.
    * Sets up routes and begins listening on the configured port.
    */
-  async start(): Promise<void> {
+  async start (): Promise<void> {
     this.ensureEngine()
     this.ensureKnex()
-    const engine = this.engine as Engine
-    const knex = this.knex as Knex.Knex
+    const engine = this.engine
+    const knex = this.knex
 
     this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
     this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
@@ -500,13 +500,13 @@ export default class OverlayExpress {
         const startTime = Date.now()
 
         // Log incoming request details
-        this.logger.log(chalk.magenta.bold(`📥 Incoming Request: ${req.method} ${req.originalUrl}`))
+        this.logger.log(chalk.magenta.bold(`📥 Incoming Request: ${String(req.method)} ${String(req.originalUrl)}`))
         // Pretty-print headers
-        this.logger.log(chalk.cyan(`Headers:`))
+        this.logger.log(chalk.cyan('Headers:'))
         this.logger.log(util.inspect(req.headers, { colors: true, depth: null }))
 
         // Handle request body
-        if (req.body && Object.keys(req.body).length > 0) {
+        if (req.body != null && Object.keys(req.body).length > 0) {
           let bodyContent
           let bodyString
           if (typeof req.body === 'object') {
@@ -514,12 +514,12 @@ export default class OverlayExpress {
           } else if (Buffer.isBuffer(req.body)) {
             bodyString = req.body.toString('utf8')
           } else {
-            bodyString = req.body.toString()
+            bodyString = String(req.body)
           }
           if (bodyString.length > 280) {
-            bodyContent = chalk.yellow(`(Body too long to display, length: ${bodyString.length} characters)`)
+            bodyContent = chalk.yellow(`(Body too long to display, length: ${String(bodyString.length)} characters)`)
           } else {
-            bodyContent = chalk.green(`Request Body:\n${bodyString}`)
+            bodyContent = chalk.green(`Request Body:\n${String(bodyString)}`)
           }
           this.logger.log(bodyContent)
         }
@@ -538,27 +538,29 @@ export default class OverlayExpress {
           const duration = Date.now() - startTime
           this.logger.log(
             chalk.magenta.bold(
-              `📤 Outgoing Response: ${req.method} ${req.originalUrl} - Status: ${res.statusCode} - Duration: ${duration}ms`
+              `📤 Outgoing Response: ${String(req.method)} ${String(req.originalUrl)} - Status: ${String(res.statusCode)} - Duration: ${String(duration)}ms`
             )
           )
-          this.logger.log(chalk.cyan(`Response Headers:`))
+          this.logger.log(chalk.cyan('Response Headers:'))
           this.logger.log(util.inspect(res.getHeaders(), { colors: true, depth: null }))
 
           // Handle response body
-          if (responseBody) {
+          if (responseBody != null) {
             let bodyContent
             let bodyString
             if (typeof responseBody === 'object') {
               bodyString = JSON.stringify(responseBody, null, 2)
             } else if (Buffer.isBuffer(responseBody)) {
               bodyString = responseBody.toString('utf8')
+            } else if (typeof responseBody === 'string') {
+              bodyString = responseBody
             } else {
-              bodyString = responseBody.toString()
+              bodyString = String(responseBody)
             }
             if (bodyString.length > 280) {
-              bodyContent = chalk.yellow(`(Response body too long to display, length: ${bodyString.length} characters)`)
+              bodyContent = chalk.yellow(`(Response body too long to display, length: ${String(bodyString.length)} characters)`)
             } else {
-              bodyContent = chalk.green(`Response Body:\n${bodyString}`)
+              bodyContent = chalk.green(`Response Body:\n${String(bodyString)}`)
             }
             this.logger.log(bodyContent)
           }
@@ -824,7 +826,7 @@ export default class OverlayExpress {
      * Middleware for checking the admin bearer token.
      */
     const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
-      const authHeader = req.headers['authorization']
+      const authHeader = req.headers.authorization
       if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
         res.status(401).json({ status: 'error', message: 'Unauthorized: Missing Bearer token' })
         return
