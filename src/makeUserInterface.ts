@@ -1,3 +1,4 @@
+/* eslint-disable */
 import generalGuide from './generalGuide.md.js'
 
 export interface UIConfig {

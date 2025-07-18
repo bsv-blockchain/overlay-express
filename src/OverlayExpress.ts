@@ -974,7 +974,7 @@ export default class OverlayExpress {
     }
 
     // Start listening on the configured port
-    this.app.listen(this.port, async () => {
+    this.app.listen(this.port, () => {
       this.logger.log(chalk.green.bold(`🎧 ${this.name} is ready and listening on local port ${this.port}`))
     })
   }
