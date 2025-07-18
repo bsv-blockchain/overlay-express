@@ -38,7 +38,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bitcoin-sv/overlay-express.git"
+    "url": "git+https://github.com/bsv-blockchain/overlay-express.git"
   },
   "keywords": [
     "BSV",
@@ -50,9 +50,9 @@
   "author": "BSV Association",
   "license": "SEE LICENSE IN LICENSE.txt",
   "bugs": {
-    "url": "https://github.com/bitcoin-sv/overlay-express/issues"
+    "url": "https://github.com/bsv-blockchain/overlay-express/issues"
   },
-  "homepage": "https://github.com/bitcoin-sv/overlay-express#readme",
+  "homepage": "https://github.com/bsv-blockchain/overlay-express#readme",
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.12",
@@ -64,9 +64,9 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@bsv/overlay": "^0.4.1",
+    "@bsv/overlay": "^0.4.2",
     "@bsv/overlay-discovery-services": "^1.4.1",
-    "@bsv/sdk": "^1.6.10",
+    "@bsv/sdk": "^1.6.16",
     "body-parser": "^1.20.3",
     "chalk": "^5.3.0",
     "express": "^4.21.1",
