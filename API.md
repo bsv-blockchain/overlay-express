@@ -1,8 +1,17 @@
 # API
 
-Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes)
 
 ## Interfaces
+
+| |
+| --- |
+| [EngineConfig](#interface-engineconfig) |
+| [UIConfig](#interface-uiconfig) |
+
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes)
+
+---
 
 ### Interface: EngineConfig
 
@@ -23,7 +32,33 @@ export interface EngineConfig {
 }
 ```
 
-Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes)
+
+---
+### Interface: UIConfig
+
+```ts
+export interface UIConfig {
+    host?: string;
+    faviconUrl?: string;
+    backgroundColor?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    fontFamily?: string;
+    headingFontFamily?: string;
+    additionalStyles?: string;
+    sectionBackgroundColor?: string;
+    primaryTextColor?: string;
+    linkColor?: string;
+    hoverColor?: string;
+    borderColor?: string;
+    secondaryBackgroundColor?: string;
+    secondaryTextColor?: string;
+    defaultContent?: string;
+}
+```
+
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes)
 
 ---
 ## Classes
@@ -39,12 +74,12 @@ export default class OverlayExpress {
     app: express.Application;
     port: number = 3000;
     logger: typeof console = console;
-    knex: Knex.Knex | undefined = undefined;
-    migrationsToRun: Array<Migration> = [];
-    mongoDb: Db | undefined = undefined;
+    knex: Knex.Knex = {} as unknown as Knex.Knex;
+    migrationsToRun: Migration[] = [];
+    mongoDb: Db = {} as unknown as Db;
     network: "main" | "test" = "main";
     chainTracker: ChainTracker | "scripts only" = new WhatsOnChain(this.network);
-    engine: Engine | undefined = undefined;
+    engine: Engine = {} as unknown as Engine;
     managers: Record<string, TopicManager> = {};
     services: Record<string, LookupService> = {};
     enableGASPSync: boolean = true;
@@ -52,7 +87,7 @@ export default class OverlayExpress {
     verboseRequestLogging: boolean = false;
     webUIConfig: UIConfig = {};
     engineConfig: EngineConfig = {};
-    constructor(public name: string, public privateKey: string, public hostingURL: string, adminToken?: string) 
+    constructor(public name: string, public privateKey: string, public advertisableFQDN: string, adminToken?: string) 
     getAdminToken(): string 
     configurePort(port: number): void 
     configureWebUI(config: UIConfig): void 
@@ -68,16 +103,16 @@ export default class OverlayExpress {
     configureLookupService(name: string, service: LookupService): void 
     configureLookupServiceWithKnex(name: string, serviceFactory: (knex: Knex.Knex) => {
         service: LookupService;
-        migrations: Array<Migration>;
+        migrations: Migration[];
     }): void 
     configureLookupServiceWithMongo(name: string, serviceFactory: (mongoDb: Db) => LookupService): void 
     configureEngineParams(params: EngineConfig): void 
     async configureEngine(autoConfigureShipSlap = true): Promise<void> 
-    async start() 
+    async start(): Promise<void> 
 }
 ```
 
-See also: [EngineConfig](#interface-engineconfig), [UIConfig](#type-uiconfig)
+See also: [EngineConfig](#interface-engineconfig), [UIConfig](#interface-uiconfig)
 
 <details>
 
@@ -88,7 +123,7 @@ See also: [EngineConfig](#interface-engineconfig), [UIConfig](#type-uiconfig)
 Constructs an instance of OverlayExpress.
 
 ```ts
-constructor(public name: string, public privateKey: string, public hostingURL: string, adminToken?: string) 
+constructor(public name: string, public privateKey: string, public advertisableFQDN: string, adminToken?: string) 
 ```
 
 Argument Details
@@ -97,8 +132,8 @@ Argument Details
   + The name of the service
 + **privateKey**
   + Private key used for signing advertisements
-+ **hostingURL**
-  + The public URL where this service is hosted
++ **advertisableFQDN**
+  + The fully qualified domain name where this service is available. Does not include "https://".
 + **adminToken**
   + Optional. An administrative Bearer token used to protect admin routes.
   If not provided, a random token will be generated at runtime.
@@ -227,7 +262,7 @@ Configures a Lookup Service using Knex (SQL) database.
 ```ts
 configureLookupServiceWithKnex(name: string, serviceFactory: (knex: Knex.Knex) => {
     service: LookupService;
-    migrations: Array<Migration>;
+    migrations: Migration[];
 }): void 
 ```
 
@@ -328,7 +363,7 @@ Configures the web user interface
 ```ts
 configureWebUI(config: UIConfig): void 
 ```
-See also: [UIConfig](#type-uiconfig)
+See also: [UIConfig](#interface-uiconfig)
 
 Argument Details
 
@@ -349,34 +384,11 @@ Starts the Express server.
 Sets up routes and begins listening on the configured port.
 
 ```ts
-async start() 
+async start(): Promise<void> 
 ```
 
 </details>
 
-Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
-
----
-## Types
-
-### Type: UIConfig
-
-```ts
-export type UIConfig = {
-    faviconUrl?: string;
-    backgroundColor?: string;
-    primaryColor?: string;
-    secondaryColor?: string;
-    fontFamily?: string;
-    headingFontFamily?: string;
-    additionalStyles?: string;
-    sectionBackgroundColor?: string;
-    linkColor?: string;
-    hoverColor?: string;
-    borderColor?: string;
-}
-```
-
-Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Types](#types)
+Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes)
 
 ---
