@@ -29,6 +29,7 @@ export interface EngineConfig {
     logPrefix?: string;
     throwOnBroadcastFailure?: boolean;
     overlayBroadcastFacilitator?: OverlayBroadcastFacilitator;
+    suppressDefaultSyncAdvertisements?: boolean;
 }
 ```
 
