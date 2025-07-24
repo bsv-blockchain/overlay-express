@@ -81,6 +81,7 @@ export interface EngineConfig {
   logPrefix?: string
   throwOnBroadcastFailure?: boolean
   overlayBroadcastFacilitator?: OverlayBroadcastFacilitator
+  suppressDefaultSyncAdvertisements?: boolean
 }
 
 /**
@@ -446,7 +447,9 @@ export default class OverlayExpress {
       // overlayBroadcastFacilitator
       this.engineConfig.overlayBroadcastFacilitator ?? new HTTPSOverlayBroadcastFacilitator(),
       // logger
-      this.logger
+      this.logger,
+      // suppressDefaultSyncAdvertisements
+      this.engineConfig.suppressDefaultSyncAdvertisements ?? true
     )
 
     this.logger.log(chalk.green('🚀 Engine has been configured.'))

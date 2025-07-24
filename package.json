@@ -63,7 +63,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@bsv/overlay": "^0.4.4",
+    "@bsv/overlay": "^0.4.5",
     "@bsv/overlay-discovery-services": "^1.4.2",
     "@bsv/sdk": "^1.6.20",
     "body-parser": "^1.20.3",
