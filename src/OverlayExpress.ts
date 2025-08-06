@@ -706,7 +706,7 @@ export default class OverlayExpress {
           const steak = await engine.submit(taggedBEEF, (steak: STEAK) => {
             responseSent = true
             return res.status(200).json(steak)
-          })
+          }, 'current-tx', offChainValues)
           if (!responseSent) {
             res.status(200).json(steak)
           }
