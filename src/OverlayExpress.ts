@@ -593,6 +593,11 @@ export default class OverlayExpress {
       res.send(makeUserInterface(this.webUIConfig))
     })
 
+    // Serve a health check endpoint
+    this.app.get('/health', (_, res) => {
+      res.status(200).json({ status: 'ok' })
+    })
+
     // List hosted topic managers and lookup services
     this.app.get('/listTopicManagers', (_, res) => {
       ; (async () => {
