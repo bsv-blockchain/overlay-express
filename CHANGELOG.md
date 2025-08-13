@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file. The format 
 ## Table of Contents
 
 - [Unreleased](#unreleased)
+- [0.7.11](#0711-2025-08-13)
 
 ## [Unreleased]
 
@@ -25,6 +26,15 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Security
 - (Notify of any improvements related to security vulnerabilities or potential risks.)
+
+---
+
+## [0.7.11] - 2025-08-13
+
+### Added
+- Healthcheck endpoint
+
+---
 
 ### Template for New Releases:
 
