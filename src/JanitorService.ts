@@ -21,12 +21,12 @@ export interface JanitorConfig {
  * This service is designed to be run periodically via external schedulers (e.g., cron, docker-compose).
  */
 export class JanitorService {
-  private mongoDb: Db
-  private logger: typeof console
-  private requestTimeoutMs: number
-  private hostDownRevokeScore: number
+  private readonly mongoDb: Db
+  private readonly logger: typeof console
+  private readonly requestTimeoutMs: number
+  private readonly hostDownRevokeScore: number
 
-  constructor(config: JanitorConfig) {
+  constructor (config: JanitorConfig) {
     this.mongoDb = config.mongoDb
     this.logger = config.logger ?? console
     this.requestTimeoutMs = config.requestTimeoutMs ?? 10000 // Default: 10 seconds
@@ -36,7 +36,7 @@ export class JanitorService {
   /**
    * Runs a single pass of health checks on all SHIP and SLAP outputs
    */
-  async run(): Promise<void> {
+  async run (): Promise<void> {
     this.logger.log(chalk.blue('🧹 Running janitor health checks...'))
 
     try {
@@ -56,7 +56,7 @@ export class JanitorService {
   /**
    * Checks all outputs for a specific topic
    */
-  private async checkTopicOutputs(collectionName: string): Promise<void> {
+  private async checkTopicOutputs (collectionName: string): Promise<void> {
     try {
       const collection = this.mongoDb.collection(collectionName)
       const outputs = await collection.find({}).toArray()
@@ -74,7 +74,7 @@ export class JanitorService {
   /**
    * Checks a single output for health
    */
-  private async checkOutput(output: any, collection: any): Promise<void> {
+  private async checkOutput (output: any, collection: any): Promise<void> {
     try {
       // Extract the URL from the output
       const url = this.extractURLFromOutput(output)
@@ -106,7 +106,7 @@ export class JanitorService {
   /**
    * Extracts URL from output record
    */
-  private extractURLFromOutput(output: any): string | null {
+  private extractURLFromOutput (output: any): string | null {
     try {
       // SHIP and SLAP outputs typically have a domain field or URL field
       // Check for common field names
@@ -137,7 +137,7 @@ export class JanitorService {
   /**
    * Validates if a string is a valid domain name
    */
-  private isValidDomain(url: string): boolean {
+  private isValidDomain (url: string): boolean {
     try {
       // Parse the URL
       const parsedURL = new URL(url.startsWith('http') ? url : `https://${url}`)
@@ -159,7 +159,7 @@ export class JanitorService {
   /**
    * Checks the /health endpoint of a service
    */
-  private async checkHealthEndpoint(url: string): Promise<boolean> {
+  private async checkHealthEndpoint (url: string): Promise<boolean> {
     try {
       // Ensure URL has protocol
       const fullURL = url.startsWith('http') ? url : `https://${url}`
@@ -174,7 +174,7 @@ export class JanitorService {
           method: 'GET',
           signal: controller.signal,
           headers: {
-            'Accept': 'application/json'
+            Accept: 'application/json'
           }
         })
 
@@ -201,7 +201,7 @@ export class JanitorService {
   /**
    * Handles a healthy output by decrementing its down counter
    */
-  private async handleHealthyOutput(output: any, collection: any): Promise<void> {
+  private async handleHealthyOutput (output: any, collection: any): Promise<void> {
     try {
       const currentDown = typeof output.down === 'number' ? output.down : 0
 
@@ -221,7 +221,7 @@ export class JanitorService {
   /**
    * Handles an unhealthy output by incrementing its down counter and deleting if threshold is reached
    */
-  private async handleUnhealthyOutput(output: any, collection: any): Promise<void> {
+  private async handleUnhealthyOutput (output: any, collection: any): Promise<void> {
     try {
       const currentDown = typeof output.down === 'number' ? output.down : 0
       const newDown = currentDown + 1
