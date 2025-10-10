@@ -74,7 +74,7 @@ export class JanitorService {
   /**
    * Checks a single output for health
    */
-  private async checkOutput (output: any, collection: any): Promise<void> {
+  private async checkOutput (output: Record<string, any>, collection: any): Promise<void> {
     try {
       // Extract the URL from the output
       const url = this.extractURLFromOutput(output)
@@ -84,7 +84,7 @@ export class JanitorService {
 
       // Validate domain
       if (!this.isValidDomain(url)) {
-        this.logger.log(chalk.yellow(`⚠️ Invalid domain for output ${output.txid}:${output.outputIndex}: ${url}`))
+        this.logger.log(chalk.yellow(`⚠️ Invalid domain for output ${String(output.txid)}:${String(output.outputIndex)}: ${url}`))
         await this.handleUnhealthyOutput(output, collection)
         return
       }
@@ -98,7 +98,7 @@ export class JanitorService {
         await this.handleUnhealthyOutput(output, collection)
       }
     } catch (error) {
-      this.logger.error(chalk.red(`❌ Error checking output ${output.txid}:${output.outputIndex}:`), error)
+      this.logger.error(chalk.red(`❌ Error checking output ${String(output.txid)}:${String(output.outputIndex)}:`), error)
       await this.handleUnhealthyOutput(output, collection).catch(() => {})
     }
   }
@@ -106,7 +106,7 @@ export class JanitorService {
   /**
    * Extracts URL from output record
    */
-  private extractURLFromOutput (output: any): string | null {
+  private extractURLFromOutput (output: Record<string, any>): string | null {
     try {
       // SHIP and SLAP outputs typically have a domain field or URL field
       // Check for common field names
@@ -201,7 +201,7 @@ export class JanitorService {
   /**
    * Handles a healthy output by decrementing its down counter
    */
-  private async handleHealthyOutput (output: any, collection: any): Promise<void> {
+  private async handleHealthyOutput (output: Record<string, any>, collection: any): Promise<void> {
     try {
       const currentDown = typeof output.down === 'number' ? output.down : 0
 
@@ -211,28 +211,28 @@ export class JanitorService {
           { _id: output._id },
           { $inc: { down: -1 } }
         )
-        this.logger.log(chalk.green(`✅ Output ${output.txid}:${output.outputIndex} is healthy (down: ${currentDown} -> ${currentDown - 1})`))
+        this.logger.log(chalk.green(`✅ Output ${String(output.txid)}:${String(output.outputIndex)} is healthy (down: ${currentDown} -> ${currentDown - 1})`))
       }
     } catch (error) {
-      this.logger.error(chalk.red(`❌ Error handling healthy output ${output.txid}:${output.outputIndex}:`), error)
+      this.logger.error(chalk.red(`❌ Error handling healthy output ${String(output.txid)}:${String(output.outputIndex)}:`), error)
     }
   }
 
   /**
    * Handles an unhealthy output by incrementing its down counter and deleting if threshold is reached
    */
-  private async handleUnhealthyOutput (output: any, collection: any): Promise<void> {
+  private async handleUnhealthyOutput (output: Record<string, any>, collection: any): Promise<void> {
     try {
       const currentDown = typeof output.down === 'number' ? output.down : 0
       const newDown = currentDown + 1
 
-      this.logger.log(chalk.yellow(`⚠️ Output ${output.txid}:${output.outputIndex} is unhealthy (down: ${currentDown} -> ${newDown})`))
+      this.logger.log(chalk.yellow(`⚠️ Output ${String(output.txid)}:${String(output.outputIndex)} is unhealthy (down: ${currentDown} -> ${newDown})`))
 
       // Check if we should delete the record
       if (newDown >= this.hostDownRevokeScore) {
-        this.logger.log(chalk.red(`🚫 Deleting output ${output.txid}:${output.outputIndex} (down count: ${newDown} >= ${this.hostDownRevokeScore})`))
+        this.logger.log(chalk.red(`🚫 Deleting output ${String(output.txid)}:${String(output.outputIndex)} (down count: ${newDown} >= ${this.hostDownRevokeScore})`))
         await collection.deleteOne({ _id: output._id })
-        this.logger.log(chalk.green(`✅ Successfully deleted output ${output.txid}:${output.outputIndex}`))
+        this.logger.log(chalk.green(`✅ Successfully deleted output ${String(output.txid)}:${String(output.outputIndex)}`))
       } else {
         // Increment the down counter
         await collection.updateOne(
@@ -241,7 +241,7 @@ export class JanitorService {
         )
       }
     } catch (error) {
-      this.logger.error(chalk.red(`❌ Error handling unhealthy output ${output.txid}:${output.outputIndex}:`), error)
+      this.logger.error(chalk.red(`❌ Error handling unhealthy output ${String(output.txid)}:${String(output.outputIndex)}:`), error)
     }
   }
 }
