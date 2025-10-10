@@ -22,6 +22,7 @@ import * as DiscoveryServices from '@bsv/overlay-discovery-services'
 import chalk from 'chalk'
 import util from 'util'
 import { v4 as uuidv4 } from 'uuid'
+import { JanitorService } from './JanitorService.js'
 
 /**
  * Knex database migration.
@@ -145,6 +146,15 @@ export default class OverlayExpress {
   // If not passed in, we'll generate a random one.
   private readonly adminToken: string
 
+  // Configuration for the janitor service
+  janitorConfig: {
+    requestTimeoutMs: number
+    hostDownRevokeScore: number
+  } = {
+      requestTimeoutMs: 10000, // 10 seconds
+      hostDownRevokeScore: 3
+    }
+
   /**
    * Constructs an instance of OverlayExpress.
    * @param name - The name of the service
@@ -187,6 +197,20 @@ export default class OverlayExpress {
   configureWebUI (config: UIConfig): void {
     this.webUIConfig = config
     this.logger.log(chalk.blue('🖥️ Web UI has been configured.'))
+  }
+
+  /**
+   * Configures the janitor service parameters
+   * @param config - Janitor configuration options
+   *   - requestTimeoutMs: Timeout for health check requests (default: 10000ms)
+   *   - hostDownRevokeScore: Number of consecutive failures before deleting output (default: 3)
+   */
+  configureJanitor (config: Partial<typeof this.janitorConfig>): void {
+    this.janitorConfig = {
+      ...this.janitorConfig,
+      ...config
+    }
+    this.logger.log(chalk.blue('🧹 Janitor service has been configured.'))
   }
 
   /**
@@ -915,6 +939,36 @@ export default class OverlayExpress {
           return res.status(200).json({ status: 'success', message: 'Outpoint evicted' })
         } catch (error) {
           console.error(chalk.red('❌ Error in /admin/evictOutpoint:'), error)
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({
+          status: 'error',
+          message: 'Unexpected error'
+        })
+      })
+    })
+
+    /**
+     * Admin route to run the janitor service.
+     */
+    this.app.post('/admin/janitor', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          this.ensureMongo()
+          const janitor = new JanitorService({
+            mongoDb: this.mongoDb,
+            logger: this.logger,
+            requestTimeoutMs: this.janitorConfig.requestTimeoutMs,
+            hostDownRevokeScore: this.janitorConfig.hostDownRevokeScore
+          })
+          await janitor.run()
+          return res.status(200).json({ status: 'success', message: 'Janitor run completed' })
+        } catch (error) {
+          console.error(chalk.red('❌ Error in /admin/janitor:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
