@@ -13,7 +13,9 @@ import {
   HTTPSOverlayBroadcastFacilitator,
   DEFAULT_TESTNET_SLAP_TRACKERS,
   DEFAULT_SLAP_TRACKERS,
-  Utils
+  Utils,
+  Beef,
+  Transaction
 } from '@bsv/sdk'
 import Knex from 'knex'
 import { MongoClient, Db } from 'mongodb'
@@ -772,55 +774,42 @@ export default class OverlayExpress {
 
           const result = await engine.lookup(lookupRequest)
 
-          if (shouldReturnBinary) {
-            // Return binary response for aggregated results
-            if ((result as any).type === 'aggregated-output-list') {
-              const beef = (result as any).beef as number[] // TODO: Import new type from sdk once available
-              const outputs = (result as any).outputs as Array<{ txid: string, outputIndex: number, context?: number[] }>
-
-              if (beef != null && Array.isArray(beef) && outputs != null && Array.isArray(outputs)) {
-                // Serialize in the format expected by LookupResolver
-                const writer = new Utils.Writer()
-
-                // Write number of outpoints
-                writer.writeVarIntNum(outputs.length)
-
-                // Write each outpoint data
-                for (const output of outputs) {
-                  // Write txid (32 bytes)
-                  writer.write(Utils.toArray(output.txid, 'hex'))
-                  // Write outputIndex
-                  writer.writeVarIntNum(output.outputIndex)
-                  // Write context length and data
-                  if ((output.context != null) && output.context.length > 0) {
-                    writer.writeVarIntNum(output.context.length)
-                    writer.write(output.context)
-                  } else {
-                    writer.writeVarIntNum(0)
-                  }
-                }
-
-                // Write the beef data
-                writer.write(beef)
-
-                res.setHeader('Content-Type', 'application/octet-stream')
-                return res.status(200).send(Buffer.from(writer.toArray()))
-              } else {
-                return res.status(400).json({
-                  status: 'error',
-                  message: 'Binary response requested but BEEF data or outputs are missing'
-                })
-              }
-            } else {
-              return res.status(400).json({
-                status: 'error',
-                message: 'Binary response requested but result is not aggregated'
-              })
-            }
-          } else {
+          if (!shouldReturnBinary) {
             // Return JSON response (default behavior)
             return res.status(200).json(result)
           }
+
+          const beef = new Beef()
+          const outputs = result.outputs
+
+          // Serialize in the format expected by LookupResolver
+          const writer = new Utils.Writer()
+
+          // Write number of outpoints
+          writer.writeVarIntNum(outputs.length)
+
+          // Write each outpoint data
+          for (const output of outputs) {
+            const tx = Transaction.fromBEEF(output.beef)
+            // Write txid (32 bytes)
+            writer.write(tx.id())
+            // Write outputIndex
+            writer.writeVarIntNum(output.outputIndex)
+            // Write context length and data
+            if ((output.context != null) && output.context.length > 0) {
+              writer.writeVarIntNum(output.context.length)
+              writer.write(output.context)
+            } else {
+              writer.writeVarIntNum(0)
+            }
+            beef.mergeTransaction(tx)
+          }
+
+          // Write the beef data
+          writer.write(beef.toBinary())
+
+          res.setHeader('Content-Type', 'application/octet-stream')
+          return res.status(200).send(Buffer.from(writer.toArray()))
         } catch (error) {
           console.error(chalk.red('Error in /lookup:'), error)
           return res.status(400).json({
