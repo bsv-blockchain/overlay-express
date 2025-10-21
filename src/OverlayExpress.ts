@@ -759,7 +759,7 @@ export default class OverlayExpress {
         try {
           // Check for aggregation header to determine response format
           const aggregationHeader = req.headers['x-aggregation']
-          const shouldReturnBinary = aggregationHeader === 'true'
+          const shouldReturnBinary = aggregationHeader === 'yes'
 
           // Validate request body structure
           const lookupRequest = req.body as { service: string, query: unknown }
@@ -776,13 +776,39 @@ export default class OverlayExpress {
             // Return binary response for aggregated results
             if ((result as any).type === 'aggregated-output-list') {
               const beef = (result as any).beef as number[] // TODO: Import new type from sdk once available
-              if (beef != null && Array.isArray(beef)) {
+              const outputs = (result as any).outputs as Array<{ txid: string, outputIndex: number, context?: number[] }>
+
+              if (beef != null && Array.isArray(beef) && outputs != null && Array.isArray(outputs)) {
+                // Serialize in the format expected by LookupResolver
+                const writer = new Utils.Writer()
+
+                // Write number of outpoints
+                writer.writeVarIntNum(outputs.length)
+
+                // Write each outpoint data
+                for (const output of outputs) {
+                  // Write txid (32 bytes)
+                  writer.write(Utils.toArray(output.txid, 'hex'))
+                  // Write outputIndex
+                  writer.writeVarIntNum(output.outputIndex)
+                  // Write context length and data
+                  if ((output.context != null) && output.context.length > 0) {
+                    writer.writeVarIntNum(output.context.length)
+                    writer.write(output.context)
+                  } else {
+                    writer.writeVarIntNum(0)
+                  }
+                }
+
+                // Write the beef data
+                writer.write(beef)
+
                 res.setHeader('Content-Type', 'application/octet-stream')
-                return res.status(200).send(Buffer.from(beef))
+                return res.status(200).send(Buffer.from(writer.toArray()))
               } else {
                 return res.status(400).json({
                   status: 'error',
-                  message: 'Binary response requested but BEEF data is missing'
+                  message: 'Binary response requested but BEEF data or outputs are missing'
                 })
               }
             } else {
