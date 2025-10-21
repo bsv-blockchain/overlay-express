@@ -757,10 +757,46 @@ export default class OverlayExpress {
     this.app.post('/lookup', (req, res) => {
       ; (async () => {
         try {
-          const result = await engine.lookup(req.body)
-          return res.status(200).json(result)
+          // Check for aggregation header to determine response format
+          const aggregationHeader = req.headers['x-aggregation']
+          const shouldReturnBinary = aggregationHeader === 'true'
+
+          // Validate request body structure
+          const lookupRequest = req.body as { service: string, query: unknown }
+          if (typeof lookupRequest.service !== 'string' || lookupRequest.query === undefined) {
+            return res.status(400).json({
+              status: 'error',
+              message: 'Invalid request: body must contain "service" (string) and "query" fields'
+            })
+          }
+
+          const result = await engine.lookup(lookupRequest)
+
+          if (shouldReturnBinary) {
+            // Return binary response for aggregated results
+            if ((result as any).type === 'aggregated-output-list') {
+              const beef = (result as any).beef as number[] // TODO: Import new type from sdk once available
+              if (beef != null && Array.isArray(beef)) {
+                res.setHeader('Content-Type', 'application/octet-stream')
+                return res.status(200).send(Buffer.from(beef))
+              } else {
+                return res.status(400).json({
+                  status: 'error',
+                  message: 'Binary response requested but BEEF data is missing'
+                })
+              }
+            } else {
+              return res.status(400).json({
+                status: 'error',
+                message: 'Binary response requested but result is not aggregated'
+              })
+            }
+          } else {
+            // Return JSON response (default behavior)
+            return res.status(200).json(result)
+          }
         } catch (error) {
-          console.error(chalk.red('❌ Error in /lookup:'), error)
+          console.error(chalk.red('Error in /lookup:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
