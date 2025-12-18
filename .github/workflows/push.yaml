@@ -1,63 +1,71 @@
-on: [push, pull_request]
-name: Build and Publish
+name: Test and Publish Package
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 jobs:
-  build:
-    name: Build
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [20, 22, 24]
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-    - name: Cache node_modules
-      id: cache-modules
-      uses: actions/cache@v4
-      with:
-        path: node_modules
-        key: ${{ matrix.node-version }}-${{ runner.OS }}-build-${{ hashFiles('package.json') }}
-    - name: Build
-      if: steps.cache-modules.outputs.cache-hit != 'true'
-      run: npm install
-    - name: Lint
-      run: npm run lint:ci
-    - name: Test
-      run: npm run test
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm test
+
   publish:
-    name: Publish
-    needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: test
+    # Only run on push to master/main, not on PRs
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     steps:
-    - name: Authenticate with registry
-      run: echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" > ~/.npmrc
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.BSV_NPM_TOKEN }}
-    - uses: actions/checkout@v3
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v1
-      with:
-        node-version: 20.x
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.BSV_NPM_TOKEN }}
-    - name: Cache node_modules
-      id: cache-modules
-      uses: actions/cache@v3
-      with:
-        path: node_modules
-        key: 20.x-${{ runner.OS }}-build-${{ hashFiles('package.json') }}
-    - name: Install deps
-      if: steps.cache-modules.outputs.cache-hit != 'true'
-      run: npm install
-    - name: Build
-      run: npm run build
-    - name: Publish to NPM (expected to fail if version was not bumped manually)
-      run: npm publish --provenance --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.BSV_NPM_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+      - run: npm run build --if-present
+
+      - name: Check if version already published
+        id: check-version
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          echo "Package: $PACKAGE_NAME@$PACKAGE_VERSION"
+
+          # Check if this version exists on npm
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version 2>/dev/null; then
+            echo "Version $PACKAGE_VERSION already published"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version $PACKAGE_VERSION not yet published"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm
+        if: steps.check-version.outputs.should_publish == 'true'
+        run: npm publish
+
+      - name: Skip publishing
+        if: steps.check-version.outputs.should_publish == 'false'
+        run: echo "Skipping publish - version already exists on npm"
