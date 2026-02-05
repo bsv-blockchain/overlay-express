@@ -29,6 +29,13 @@ All notable changes to this project will be documented in this file. The format 
 
 ---
 
+## [0.9.1] - 2026-02-05
+
+### Changed
+- Updated dependencies
+
+---
+
 ## [0.7.11] - 2025-08-13
 
 ### Added
