@@ -6,22 +6,29 @@ jest.mock('uuid', () => ({
 }))
 
 // Mock chalk to avoid ANSI color codes in test output
-jest.mock('chalk', () => ({
-  default: {
-    green: { bold: (str: string) => str },
+jest.mock('chalk', () => {
+  const mockChalk = (str: string) => str
+  const colorFn = Object.assign((str: string) => str, {
+    bold: (str: string) => str
+  })
+
+  return {
+    default: Object.assign(mockChalk, {
+      green: Object.assign((str: string) => str, { bold: (str: string) => str }),
+      blue: (str: string) => str,
+      yellow: (str: string) => str,
+      red: (str: string) => str,
+      magenta: Object.assign((str: string) => str, { bold: (str: string) => str }),
+      cyan: (str: string) => str
+    }),
+    green: Object.assign((str: string) => str, { bold: (str: string) => str }),
     blue: (str: string) => str,
     yellow: (str: string) => str,
     red: (str: string) => str,
-    magenta: { bold: (str: string) => str },
+    magenta: Object.assign((str: string) => str, { bold: (str: string) => str }),
     cyan: (str: string) => str
-  },
-  green: { bold: (str: string) => str },
-  blue: (str: string) => str,
-  yellow: (str: string) => str,
-  red: (str: string) => str,
-  magenta: { bold: (str: string) => str },
-  cyan: (str: string) => str
-}))
+  }
+})
 
 // Suppress console output during tests unless explicitly testing it
 global.console = {
