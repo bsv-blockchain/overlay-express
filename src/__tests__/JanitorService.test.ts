@@ -15,17 +15,15 @@ describe('JanitorService', () => {
 
     mockCollection = {
       find: jest.fn().mockReturnValue({
-        toArray: jest.fn().mockResolvedValue([])
+        toArray: jest.fn<any>().mockResolvedValue([] as any)
       }),
-      updateOne: jest.fn().mockResolvedValue({}),
-      deleteOne: jest.fn().mockResolvedValue({})
+      updateOne: jest.fn<any>().mockResolvedValue({} as any),
+      deleteOne: jest.fn<any>().mockResolvedValue({} as any)
     }
 
-    // @ts-expect-error - Mocking Db for testing
     mockDb = {
-      // @ts-expect-error - Mock collection method
       collection: jest.fn().mockReturnValue(mockCollection)
-    }
+    } as unknown as Db
 
     mockLogger = {
       log: jest.fn(),
@@ -86,8 +84,7 @@ describe('JanitorService', () => {
     })
 
     it('should handle errors during health checks', async () => {
-      // @ts-expect-error - Mocking error
-      mockDb.collection = jest.fn().mockImplementation(() => {
+      (mockDb as any).collection = jest.fn().mockImplementation(() => {
         throw new Error('Database error')
       })
 
@@ -96,7 +93,7 @@ describe('JanitorService', () => {
         logger: mockLogger
       })
 
-      await expect(janitor.run()).rejects.toThrow('Database error')
+      await janitor.run()
       expect(mockLogger.error).toHaveBeenCalled()
     })
 
@@ -122,17 +119,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -154,17 +147,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -186,17 +175,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -218,17 +203,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -249,10 +230,8 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
       const janitor = new JanitorService({
@@ -276,17 +255,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -308,10 +283,8 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
       const janitor = new JanitorService({
@@ -337,17 +310,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -369,17 +338,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -403,17 +368,13 @@ describe('JanitorService', () => {
         down: 2
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -439,17 +400,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'ok' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'ok' })
       })
 
       const janitor = new JanitorService({
@@ -471,14 +428,11 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: false
       })
 
@@ -505,14 +459,11 @@ describe('JanitorService', () => {
         down: 2
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: false
       })
 
@@ -537,16 +488,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
       const abortError = new Error('Aborted')
       abortError.name = 'AbortError'
-      // @ts-expect-error - Mock rejected value
-      ;(global.fetch as jest.Mock).mockRejectedValue(abortError)
+      ;(global.fetch as jest.Mock<any>).mockRejectedValue(abortError)
 
       const janitor = new JanitorService({
         mongoDb: mockDb,
@@ -572,14 +520,11 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock rejected value
-      ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
+      ;(global.fetch as jest.Mock<any>).mockRejectedValue(new Error('Network error'))
 
       const janitor = new JanitorService({
         mongoDb: mockDb,
@@ -603,17 +548,13 @@ describe('JanitorService', () => {
         down: 0
       }
 
-      // @ts-expect-error - Mock return value
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock toArray
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock rejected value
-        json: jest.fn().mockRejectedValue(new Error('Invalid JSON'))
+        json: jest.fn<any>().mockRejectedValue(new Error('Invalid JSON'))
       })
 
       const janitor = new JanitorService({
@@ -638,17 +579,13 @@ describe('JanitorService', () => {
         down: 1
       }
 
-      // @ts-expect-error - Mock toArray
       mockCollection.find.mockReturnValue({
-        // @ts-expect-error - Mock array result
-        toArray: jest.fn().mockResolvedValue([mockOutput])
+        toArray: jest.fn<any>().mockResolvedValue([mockOutput])
       })
 
-      // @ts-expect-error - Mock fetch response
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      ;(global.fetch as jest.Mock<any>).mockResolvedValue({
         ok: true,
-        // @ts-expect-error - Mock json method
-        json: jest.fn().mockResolvedValue({ status: 'error' })
+        json: jest.fn<any>().mockResolvedValue({ status: 'error' })
       })
 
       const janitor = new JanitorService({

@@ -362,12 +362,9 @@ describe('OverlayExpress', () => {
         migrations: []
       })
 
-      // Note: due to initialization with empty object, ensureKnex check doesn't actually
-      // throw when knex is not properly configured. This is a known limitation.
-      // The test verifies the method can be called without error
       // @ts-expect-error - Mock factory function
-      freshInstance.configureLookupServiceWithKnex('test', mockFactory)
-      expect(mockFactory).toHaveBeenCalled()
+      expect(() => freshInstance.configureLookupServiceWithKnex('test', mockFactory))
+        .toThrow('You must configure your SQL database')
     })
   })
 
@@ -401,12 +398,9 @@ describe('OverlayExpress', () => {
       const freshInstance = new OverlayExpress('Test', 'key', 'example.com')
       const mockFactory = jest.fn().mockReturnValue({} as LookupService)
 
-      // Note: due to initialization with empty object, ensureMongo check doesn't actually
-      // throw when mongo is not properly configured. This is a known limitation.
-      // The test verifies the method can be called without error
       // @ts-expect-error - Mock factory function
-      freshInstance.configureLookupServiceWithMongo('test', mockFactory)
-      expect(mockFactory).toHaveBeenCalled()
+      expect(() => freshInstance.configureLookupServiceWithMongo('test', mockFactory))
+        .toThrow('You must configure your MongoDB connection')
     })
   })
 
