@@ -9,5 +9,6 @@
     "./src/**/*.ts",
     ".eslintrc.js",
     "jest.config.js"
-  ]
+  ],
+  "exclude": ["dist"]
 }

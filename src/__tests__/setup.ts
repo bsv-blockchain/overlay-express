@@ -7,10 +7,7 @@ jest.mock('uuid', () => ({
 
 // Mock chalk to avoid ANSI color codes in test output
 jest.mock('chalk', () => {
-  const mockChalk = (str: string) => str
-  const colorFn = Object.assign((str: string) => str, {
-    bold: (str: string) => str
-  })
+  const mockChalk = (str: string): string => str
 
   return {
     default: Object.assign(mockChalk, {

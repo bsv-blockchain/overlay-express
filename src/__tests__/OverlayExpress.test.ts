@@ -176,7 +176,7 @@ describe('OverlayExpress', () => {
 
   describe('configureChainTracker', () => {
     it('should set custom chain tracker', () => {
-      const mockChainTracker = {} as ChainTracker
+      const mockChainTracker: ChainTracker = Object.create(null)
       overlayExpress.configureChainTracker(mockChainTracker)
       expect(overlayExpress.chainTracker).toBe(mockChainTracker)
     })
@@ -275,41 +275,41 @@ describe('OverlayExpress', () => {
 
   describe('configureTopicManager', () => {
     it('should add topic manager', () => {
-      const mockManager = {} as TopicManager
+      const mockManager: TopicManager = Object.create(null)
       overlayExpress.configureTopicManager('test_manager', mockManager)
 
-      expect(overlayExpress.managers['test_manager']).toBe(mockManager)
+      expect(overlayExpress.managers.test_manager).toBe(mockManager)
     })
 
     it('should add multiple topic managers', () => {
-      const manager1 = {} as TopicManager
-      const manager2 = {} as TopicManager
+      const manager1: TopicManager = Object.create(null)
+      const manager2: TopicManager = Object.create(null)
 
       overlayExpress.configureTopicManager('manager1', manager1)
       overlayExpress.configureTopicManager('manager2', manager2)
 
-      expect(overlayExpress.managers['manager1']).toBe(manager1)
-      expect(overlayExpress.managers['manager2']).toBe(manager2)
+      expect(overlayExpress.managers.manager1).toBe(manager1)
+      expect(overlayExpress.managers.manager2).toBe(manager2)
     })
   })
 
   describe('configureLookupService', () => {
     it('should add lookup service', () => {
-      const mockService = {} as LookupService
+      const mockService: LookupService = Object.create(null)
       overlayExpress.configureLookupService('test_service', mockService)
 
-      expect(overlayExpress.services['test_service']).toBe(mockService)
+      expect(overlayExpress.services.test_service).toBe(mockService)
     })
 
     it('should add multiple lookup services', () => {
-      const service1 = {} as LookupService
-      const service2 = {} as LookupService
+      const service1: LookupService = Object.create(null)
+      const service2: LookupService = Object.create(null)
 
       overlayExpress.configureLookupService('service1', service1)
       overlayExpress.configureLookupService('service2', service2)
 
-      expect(overlayExpress.services['service1']).toBe(service1)
-      expect(overlayExpress.services['service2']).toBe(service2)
+      expect(overlayExpress.services.service1).toBe(service1)
+      expect(overlayExpress.services.service2).toBe(service2)
     })
   })
 
@@ -324,7 +324,7 @@ describe('OverlayExpress', () => {
     })
 
     it('should configure lookup service with Knex', () => {
-      const mockService = {} as LookupService
+      const mockService: LookupService = Object.create(null)
       const mockFactory = jest.fn().mockReturnValue({
         service: mockService,
         migrations: []
@@ -334,11 +334,11 @@ describe('OverlayExpress', () => {
       overlayExpress.configureLookupServiceWithKnex('test_service', mockFactory)
 
       expect(mockFactory).toHaveBeenCalledWith(overlayExpress.knex)
-      expect(overlayExpress.services['test_service']).toBe(mockService)
+      expect(overlayExpress.services.test_service).toBe(mockService)
     })
 
     it('should add migrations from factory', () => {
-      const mockService = {} as LookupService
+      const mockService: LookupService = Object.create(null)
       const mockMigrations = [
         { name: 'migration1', up: jest.fn() },
         { name: 'migration2', up: jest.fn() }
@@ -357,8 +357,9 @@ describe('OverlayExpress', () => {
 
     it('should check Knex configuration', () => {
       const freshInstance = new OverlayExpress('Test', 'key', 'example.com')
+      const mockLookupService: LookupService = Object.create(null)
       const mockFactory = jest.fn().mockReturnValue({
-        service: {} as LookupService,
+        service: mockLookupService,
         migrations: []
       })
 
@@ -384,19 +385,20 @@ describe('OverlayExpress', () => {
     })
 
     it('should configure lookup service with MongoDB', () => {
-      const mockService = {} as LookupService
+      const mockService: LookupService = Object.create(null)
       const mockFactory = jest.fn().mockReturnValue(mockService)
 
       // @ts-expect-error - Mock factory function
       overlayExpress.configureLookupServiceWithMongo('test_service', mockFactory)
 
       expect(mockFactory).toHaveBeenCalledWith(overlayExpress.mongoDb)
-      expect(overlayExpress.services['test_service']).toBe(mockService)
+      expect(overlayExpress.services.test_service).toBe(mockService)
     })
 
     it('should check MongoDB configuration', () => {
       const freshInstance = new OverlayExpress('Test', 'key', 'example.com')
-      const mockFactory = jest.fn().mockReturnValue({} as LookupService)
+      const mockLookupService: LookupService = Object.create(null)
+      const mockFactory = jest.fn().mockReturnValue(mockLookupService)
 
       // @ts-expect-error - Mock factory function
       expect(() => freshInstance.configureLookupServiceWithMongo('test', mockFactory))
@@ -478,18 +480,18 @@ describe('OverlayExpress', () => {
       await overlayExpress.configureEngine(true)
 
       expect(overlayExpress.engine).toBeDefined()
-      expect(overlayExpress.managers['tm_ship']).toBeDefined()
-      expect(overlayExpress.managers['tm_slap']).toBeDefined()
-      expect(overlayExpress.services['ls_ship']).toBeDefined()
-      expect(overlayExpress.services['ls_slap']).toBeDefined()
+      expect(overlayExpress.managers.tm_ship).toBeDefined()
+      expect(overlayExpress.managers.tm_slap).toBeDefined()
+      expect(overlayExpress.services.ls_ship).toBeDefined()
+      expect(overlayExpress.services.ls_slap).toBeDefined()
     })
 
     it('should configure engine without auto SHIP/SLAP', async () => {
       await overlayExpress.configureEngine(false)
 
       expect(overlayExpress.engine).toBeDefined()
-      expect(overlayExpress.managers['tm_ship']).toBeUndefined()
-      expect(overlayExpress.managers['tm_slap']).toBeUndefined()
+      expect(overlayExpress.managers.tm_ship).toBeUndefined()
+      expect(overlayExpress.managers.tm_slap).toBeUndefined()
     })
 
     it('should respect enableGASPSync setting', async () => {
@@ -596,10 +598,10 @@ describe('OverlayExpress', () => {
     })
 
     it('should maintain separate topic managers and lookup services', () => {
-      const manager1 = {} as TopicManager
-      const manager2 = {} as TopicManager
-      const service1 = {} as LookupService
-      const service2 = {} as LookupService
+      const manager1: TopicManager = Object.create(null)
+      const manager2: TopicManager = Object.create(null)
+      const service1: LookupService = Object.create(null)
+      const service2: LookupService = Object.create(null)
 
       overlayExpress.configureTopicManager('tm1', manager1)
       overlayExpress.configureTopicManager('tm2', manager2)
@@ -680,10 +682,13 @@ describe('OverlayExpress', () => {
 
     it('should throw if engine not configured', async () => {
       const freshInstance = new OverlayExpress('Test', 'key', 'example.com')
-      const mockKnex = { raw: jest.fn(), migrate: {
+      const mockKnex = {
+        raw: jest.fn(),
+        migrate: {
         // @ts-expect-error - Mock return value
-        latest: jest.fn().mockResolvedValue([])
-      } }
+          latest: jest.fn().mockResolvedValue([])
+        }
+      }
       ;(Knex as any).mockReturnValue(mockKnex)
       await freshInstance.configureKnex({ client: 'mysql2', connection: {} })
 
@@ -893,6 +898,7 @@ describe('OverlayExpress', () => {
       })
 
       // Mock the instanceof check
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const DiscoveryServices = require('@bsv/overlay-discovery-services')
       Object.defineProperty(mockAdvertiser, 'constructor', {
         value: DiscoveryServices.WalletAdvertiser

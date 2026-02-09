@@ -1,5 +1,4 @@
 import { describe, it, expect } from '@jest/globals'
-import Knex from 'knex'
 
 // Since InMemoryMigrationSource is not exported, we'll test it through OverlayExpress
 // This is a separate test file for clarity
