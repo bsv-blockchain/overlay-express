@@ -65,9 +65,9 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@bsv/overlay": "^2.0.0",
-    "@bsv/overlay-discovery-services": "^2.0.1",
-    "@bsv/sdk": "^2.0.1",
+    "@bsv/overlay": "^2.0.1",
+    "@bsv/overlay-discovery-services": "^2.0.2",
+    "@bsv/sdk": "^2.0.4",
     "body-parser": "^2.2.2",
     "chalk": "^5.6.2",
     "express": "^5.2.1",
