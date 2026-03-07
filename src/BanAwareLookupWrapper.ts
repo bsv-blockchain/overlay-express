@@ -7,7 +7,7 @@ import {
   OutputSpent,
   LookupServiceMetaData
 } from '@bsv/overlay'
-import { PushDrop, Utils, LookupQuestion, Script } from '@bsv/sdk'
+import { PushDrop, Utils, LookupQuestion } from '@bsv/sdk'
 import { BanService } from './BanService.js'
 
 /**

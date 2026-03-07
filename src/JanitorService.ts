@@ -160,7 +160,7 @@ export class JanitorService {
           return { healthy: false, responseTimeMs, statusCode: response.status, error: `HTTP ${response.status}` }
         }
 
-        const data = await response.json() as any
+        const data = await response.json()
         const healthy = data?.status === 'ok'
         return { healthy, responseTimeMs, statusCode: response.status, error: healthy ? undefined : 'Unexpected response' }
       } catch (error: any) {

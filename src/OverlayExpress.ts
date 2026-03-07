@@ -369,8 +369,8 @@ export default class OverlayExpress {
     name: string,
     serviceFactory: (knex: Knex.Knex) => { service: LookupService, migrations: Migration[] }
   ): void {
-    this.ensureKnex()
-    const factoryResult = serviceFactory(this.knex!)
+    const knex = this.ensureKnex()
+    const factoryResult = serviceFactory(knex)
     this.services[name] = factoryResult.service
     this.migrationsToRun.push(...factoryResult.migrations)
     this.logger.log(chalk.blue(`Configured lookup service ${name} with Knex`))
@@ -382,8 +382,8 @@ export default class OverlayExpress {
    * @param serviceFactory - A factory function that creates a LookupService instance using MongoDB
    */
   configureLookupServiceWithMongo (name: string, serviceFactory: (mongoDb: Db) => LookupService): void {
-    this.ensureMongo()
-    this.services[name] = serviceFactory(this.mongoDb!)
+    const mongoDb = this.ensureMongo()
+    this.services[name] = serviceFactory(mongoDb)
     this.logger.log(chalk.blue(`Configured lookup service ${name} with MongoDB`))
   }
 
@@ -421,7 +421,7 @@ export default class OverlayExpress {
    * @param autoConfigureShipSlap - Whether to auto-configure SHIP and SLAP services (default: true)
    */
   async configureEngine (autoConfigureShipSlap = true): Promise<void> {
-    this.ensureKnex()
+    const knex = this.ensureKnex()
 
     if (autoConfigureShipSlap) {
       // Auto-configure SHIP and SLAP services
@@ -471,7 +471,7 @@ export default class OverlayExpress {
     }
 
     // Build the actual Storage
-    const storage = new KnexStorage(this.knex!)
+    const storage = new KnexStorage(knex)
     // Include the KnexStorage migrations
     this.migrationsToRun = [...KnexStorageMigrations.default, ...this.migrationsToRun]
 
@@ -569,42 +569,45 @@ export default class OverlayExpress {
   }
 
   /**
-   * Ensures that Knex is configured.
+   * Ensures that Knex is configured and returns it.
    * @throws Error if Knex is not configured
    */
-  private ensureKnex (): void {
+  private ensureKnex (): Knex.Knex {
     if (typeof this.knex === 'undefined') {
       throw new Error('You must configure your SQL database with the .configureKnex() method first!')
     }
+    return this.knex
   }
 
   /**
-   * Ensures that MongoDB is configured.
+   * Ensures that MongoDB is configured and returns it.
    * @throws Error if MongoDB is not configured
    */
-  private ensureMongo (): void {
+  private ensureMongo (): Db {
     if (typeof this.mongoDb === 'undefined') {
       throw new Error('You must configure your MongoDB connection with the .configureMongo() method first!')
     }
+    return this.mongoDb
   }
 
   /**
-   * Ensures that the Overlay Engine is configured.
+   * Ensures that the Overlay Engine is configured and returns it.
    * @throws Error if the Engine is not configured
    */
-  private ensureEngine (): void {
+  private ensureEngine (): Engine {
     if (typeof this.engine === 'undefined') {
       throw new Error('You must configure your Overlay Services engine with the .configureEngine() method first!')
     }
+    return this.engine
   }
 
   /**
    * Creates a JanitorService instance with current configuration.
    */
   private createJanitor (): JanitorService {
-    this.ensureMongo()
+    const mongoDb = this.ensureMongo()
     return new JanitorService({
-      mongoDb: this.mongoDb!,
+      mongoDb,
       logger: this.logger,
       requestTimeoutMs: this.janitorConfig.requestTimeoutMs,
       hostDownRevokeScore: this.janitorConfig.hostDownRevokeScore,
@@ -618,11 +621,9 @@ export default class OverlayExpress {
    * Sets up routes and begins listening on the configured port.
    */
   async start (): Promise<void> {
-    this.ensureEngine()
-    this.ensureKnex()
+    const engine = this.ensureEngine()
+    const knex = this.ensureKnex()
     this.startTime = new Date()
-    const engine = this.engine!
-    const knex = this.knex!
 
     this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
     this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
@@ -1079,8 +1080,7 @@ export default class OverlayExpress {
     this.app.get('/admin/stats', checkAdminAuth as any, (req, res) => {
       ; (async () => {
         try {
-          this.ensureMongo()
-          const db = this.mongoDb!
+          const db = this.ensureMongo()
 
           const [shipCount, slapCount, banStats] = await Promise.all([
             db.collection('shipRecords').countDocuments(),
@@ -1122,13 +1122,14 @@ export default class OverlayExpress {
     this.app.get('/admin/ship-records', checkAdminAuth as any, (req, res) => {
       ; (async () => {
         try {
-          this.ensureMongo()
-          const db = this.mongoDb!
+          const db = this.ensureMongo()
           const collection = db.collection('shipRecords')
 
           const search = typeof req.query.search === 'string' ? req.query.search : undefined
-          const page = Math.max(1, parseInt(req.query.page as string) || 1)
-          const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50))
+          const rawPage = parseInt(req.query.page as string, 10)
+          const page = Math.max(1, Number.isNaN(rawPage) ? 1 : rawPage)
+          const rawLimit = parseInt(req.query.limit as string, 10)
+          const limit = Math.min(200, Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit))
           const skip = (page - 1) * limit
 
           const query: any = {}
@@ -1167,13 +1168,14 @@ export default class OverlayExpress {
     this.app.get('/admin/slap-records', checkAdminAuth as any, (req, res) => {
       ; (async () => {
         try {
-          this.ensureMongo()
-          const db = this.mongoDb!
+          const db = this.ensureMongo()
           const collection = db.collection('slapRecords')
 
           const search = typeof req.query.search === 'string' ? req.query.search : undefined
-          const page = Math.max(1, parseInt(req.query.page as string) || 1)
-          const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50))
+          const rawPage = parseInt(req.query.page as string, 10)
+          const page = Math.max(1, Number.isNaN(rawPage) ? 1 : rawPage)
+          const rawLimit = parseInt(req.query.limit as string, 10)
+          const limit = Math.min(200, Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit))
           const skip = (page - 1) * limit
 
           const query: any = {}
@@ -1252,8 +1254,7 @@ export default class OverlayExpress {
             await this.banService.banDomain(value, reason)
 
             // Also remove any existing records for this domain from SHIP and SLAP
-            this.ensureMongo()
-            const db = this.mongoDb!
+            const db = this.ensureMongo()
             const [shipDeleted, slapDeleted] = await Promise.all([
               db.collection('shipRecords').deleteMany({ domain: value }),
               db.collection('slapRecords').deleteMany({ domain: value })
@@ -1312,7 +1313,7 @@ export default class OverlayExpress {
           if (this.banService === undefined) {
             return res.status(400).json({ status: 'error', message: 'Ban service not available' })
           }
-          const { type, value } = req.body
+          const { type, value } = req.body as { type: unknown, value: unknown }
           if (type !== 'domain' && type !== 'outpoint') {
             return res.status(400).json({ status: 'error', message: 'type must be "domain" or "outpoint"' })
           }
@@ -1321,7 +1322,7 @@ export default class OverlayExpress {
           }
 
           await this.banService.removeBan(type, value)
-          return res.status(200).json({ status: 'success', message: `${type} "${value}" unbanned.` })
+          return res.status(200).json({ status: 'success', message: `${type} "${String(value)}" unbanned.` })
         } catch (error) {
           return res.status(400).json({
             status: 'error',
@@ -1371,8 +1372,7 @@ export default class OverlayExpress {
           // Get the domain before removing (for ban option)
           let removedDomain: string | undefined
           if (shouldBanDomain === true || ban === true) {
-            this.ensureMongo()
-            const db = this.mongoDb!
+            const db = this.ensureMongo()
             const shipRecord = await db.collection('shipRecords').findOne({ txid, outputIndex })
             const slapRecord = await db.collection('slapRecords').findOne({ txid, outputIndex })
             removedDomain = (shipRecord?.domain ?? slapRecord?.domain) as string | undefined
@@ -1405,11 +1405,10 @@ export default class OverlayExpress {
             await this.banService.banDomain(removedDomain, 'Domain banned by admin via token removal')
 
             // Remove all records for this domain
-            this.ensureMongo()
-            const db = this.mongoDb!
+            const banDb = this.ensureMongo()
             await Promise.all([
-              db.collection('shipRecords').deleteMany({ domain: removedDomain }),
-              db.collection('slapRecords').deleteMany({ domain: removedDomain })
+              banDb.collection('shipRecords').deleteMany({ domain: removedDomain }),
+              banDb.collection('slapRecords').deleteMany({ domain: removedDomain })
             ])
           }
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { BanAwareLookupWrapper } from '../BanAwareLookupWrapper.js'
 import { BanService } from '../BanService.js'
-import { LookupService, OutputAdmittedByTopic, OutputSpent } from '@bsv/overlay'
-import { Script } from '@bsv/sdk'
+import { LookupService, OutputAdmittedByTopic } from '@bsv/overlay'
+import { PushDrop, Utils, Script } from '@bsv/sdk'
 
 jest.mock('@bsv/sdk', () => ({
   PushDrop: {
@@ -13,6 +13,10 @@ jest.mock('@bsv/sdk', () => ({
   },
   Script: jest.fn()
 }))
+
+// After jest.mock hoisting, these imports reference the mocked versions
+const mockPushDropDecode = PushDrop.decode as unknown as jest.Mock<any>
+const mockToUTF8 = Utils.toUTF8 as unknown as jest.Mock<any>
 
 describe('BanAwareLookupWrapper', () => {
   let wrapper: BanAwareLookupWrapper
@@ -82,11 +86,10 @@ describe('BanAwareLookupWrapper', () => {
       mockBanService.isOutpointBanned.mockResolvedValue(false)
       mockBanService.isDomainBanned.mockResolvedValue(true)
 
-      const { PushDrop, Utils } = require('@bsv/sdk')
-      PushDrop.decode.mockReturnValue({
+      mockPushDropDecode.mockReturnValue({
         fields: [Buffer.from('field0'), Buffer.from('field1'), Buffer.from('https://banned.com')]
       })
-      Utils.toUTF8.mockReturnValue('https://banned.com')
+      mockToUTF8.mockReturnValue('https://banned.com')
 
       const payload: OutputAdmittedByTopic = {
         mode: 'locking-script',
@@ -108,11 +111,10 @@ describe('BanAwareLookupWrapper', () => {
       mockBanService.isOutpointBanned.mockResolvedValue(false)
       mockBanService.isDomainBanned.mockResolvedValue(false)
 
-      const { PushDrop, Utils } = require('@bsv/sdk')
-      PushDrop.decode.mockReturnValue({
+      mockPushDropDecode.mockReturnValue({
         fields: [Buffer.from('f0'), Buffer.from('f1'), Buffer.from('https://good.com')]
       })
-      Utils.toUTF8.mockReturnValue('https://good.com')
+      mockToUTF8.mockReturnValue('https://good.com')
 
       const payload: OutputAdmittedByTopic = {
         mode: 'locking-script',
@@ -131,8 +133,7 @@ describe('BanAwareLookupWrapper', () => {
     it('should delegate to wrapped service when PushDrop decode fails', async () => {
       mockBanService.isOutpointBanned.mockResolvedValue(false)
 
-      const { PushDrop } = require('@bsv/sdk')
-      PushDrop.decode.mockImplementation(() => { throw new Error('Invalid script') })
+      mockPushDropDecode.mockImplementation(() => { throw new Error('Invalid script') })
 
       const payload: OutputAdmittedByTopic = {
         mode: 'locking-script',
@@ -151,8 +152,7 @@ describe('BanAwareLookupWrapper', () => {
     it('should delegate to wrapped service when PushDrop has fewer than 3 fields', async () => {
       mockBanService.isOutpointBanned.mockResolvedValue(false)
 
-      const { PushDrop } = require('@bsv/sdk')
-      PushDrop.decode.mockReturnValue({ fields: [Buffer.from('f0'), Buffer.from('f1')] })
+      mockPushDropDecode.mockReturnValue({ fields: [Buffer.from('f0'), Buffer.from('f1')] })
 
       const payload: OutputAdmittedByTopic = {
         mode: 'locking-script',

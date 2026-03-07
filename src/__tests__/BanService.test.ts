@@ -283,8 +283,8 @@ describe('BanService', () => {
   describe('getStats', () => {
     it('should return ban counts', async () => {
       mockCollection.countDocuments
-        .mockResolvedValueOnce(5)  // domain count
-        .mockResolvedValueOnce(3)  // outpoint count
+        .mockResolvedValueOnce(5) // domain count
+        .mockResolvedValueOnce(3) // outpoint count
 
       const stats = await banService.getStats()
 
