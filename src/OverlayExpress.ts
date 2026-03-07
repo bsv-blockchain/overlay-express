@@ -15,7 +15,10 @@ import {
   DEFAULT_SLAP_TRACKERS,
   Utils,
   Beef,
-  Transaction
+  Transaction,
+  PrivateKey,
+  KeyDeriver,
+  WalletInterface
 } from '@bsv/sdk'
 import Knex from 'knex'
 import { MongoClient, Db } from 'mongodb'
@@ -24,7 +27,11 @@ import * as DiscoveryServices from '@bsv/overlay-discovery-services'
 import chalk from 'chalk'
 import util from 'util'
 import { v4 as uuidv4 } from 'uuid'
-import { JanitorService } from './JanitorService.js'
+import { JanitorService, type JanitorReport } from './JanitorService.js'
+import { BanService } from './BanService.js'
+import { BanAwareLookupWrapper } from './BanAwareLookupWrapper.js'
+import { Wallet, WalletSigner, WalletStorageManager, Services } from '@bsv/wallet-toolbox-client'
+import { createAuthMiddleware, type AuthRequest } from '@bsv/auth-express-middleware'
 
 /**
  * Knex database migration.
@@ -152,10 +159,24 @@ export default class OverlayExpress {
   janitorConfig: {
     requestTimeoutMs: number
     hostDownRevokeScore: number
+    autoBanOnRemoval: boolean
   } = {
       requestTimeoutMs: 10000, // 10 seconds
-      hostDownRevokeScore: 3
+      hostDownRevokeScore: 3,
+      autoBanOnRemoval: true
     }
+
+  // Ban service for persistent domain/outpoint blocking
+  banService?: BanService
+
+  // Admin identity key for wallet-based admin detection on the frontend
+  adminIdentityKey?: string
+
+  // Server-side wallet (WalletInterface) used for BSV mutual authentication
+  serverWallet?: WalletInterface
+
+  // Server start time for uptime tracking
+  private startTime?: Date
 
   /**
    * Constructs an instance of OverlayExpress.
@@ -172,7 +193,7 @@ export default class OverlayExpress {
     adminToken?: string
   ) {
     this.app = express()
-    this.logger.log(chalk.green.bold(`${name} constructed 🎉`))
+    this.logger.log(chalk.green.bold(`${name} constructed`))
     this.adminToken = adminToken ?? uuidv4() // generate random if not provided
   }
 
@@ -189,7 +210,7 @@ export default class OverlayExpress {
    */
   configurePort (port: number): void {
     this.port = port
-    this.logger.log(chalk.blue(`🌐 Server port set to ${port}`))
+    this.logger.log(chalk.blue(`Server port set to ${port}`))
   }
 
   /**
@@ -198,7 +219,7 @@ export default class OverlayExpress {
    */
   configureWebUI (config: UIConfig): void {
     this.webUIConfig = config
-    this.logger.log(chalk.blue('🖥️ Web UI has been configured.'))
+    this.logger.log(chalk.blue('Web UI has been configured.'))
   }
 
   /**
@@ -206,13 +227,26 @@ export default class OverlayExpress {
    * @param config - Janitor configuration options
    *   - requestTimeoutMs: Timeout for health check requests (default: 10000ms)
    *   - hostDownRevokeScore: Number of consecutive failures before deleting output (default: 3)
+   *   - autoBanOnRemoval: Whether to auto-ban domains when removed by janitor (default: true)
    */
   configureJanitor (config: Partial<typeof this.janitorConfig>): void {
     this.janitorConfig = {
       ...this.janitorConfig,
       ...config
     }
-    this.logger.log(chalk.blue('🧹 Janitor service has been configured.'))
+    this.logger.log(chalk.blue('Janitor service has been configured.'))
+  }
+
+  /**
+   * Configures the admin identity key for wallet-based admin detection.
+   * When set, the frontend can compare the user's wallet identity key against this
+   * to determine whether to show the admin dashboard.
+   *
+   * @param identityKey - The hex-encoded public key of the admin
+   */
+  configureAdminIdentityKey (identityKey: string): void {
+    this.adminIdentityKey = identityKey
+    this.logger.log(chalk.blue('Admin identity key has been configured.'))
   }
 
   /**
@@ -221,7 +255,7 @@ export default class OverlayExpress {
    */
   configureLogger (logger: typeof console): void {
     this.logger = logger
-    this.logger.log(chalk.blue('🔍 Logger has been configured.'))
+    this.logger.log(chalk.blue('Logger has been configured.'))
   }
 
   /**
@@ -232,7 +266,7 @@ export default class OverlayExpress {
   configureNetwork (network: 'main' | 'test'): void {
     this.network = network
     this.chainTracker = new WhatsOnChain(this.network)
-    this.logger.log(chalk.blue(`🔗 Network set to ${network}`))
+    this.logger.log(chalk.blue(`Network set to ${network}`))
   }
 
   /**
@@ -242,7 +276,7 @@ export default class OverlayExpress {
    */
   configureChainTracker (chainTracker: ChainTracker | 'scripts only' = new WhatsOnChain(this.network)): void {
     this.chainTracker = chainTracker
-    this.logger.log(chalk.blue('🔗 ChainTracker has been configured.'))
+    this.logger.log(chalk.blue('ChainTracker has been configured.'))
   }
 
   /**
@@ -251,7 +285,7 @@ export default class OverlayExpress {
    */
   configureArcApiKey (apiKey: string): void {
     this.arcApiKey = apiKey
-    this.logger.log(chalk.blue('🔑 ARC API key has been configured.'))
+    this.logger.log(chalk.blue('ARC API key has been configured.'))
   }
 
   /**
@@ -261,7 +295,7 @@ export default class OverlayExpress {
    */
   configureEnableGASPSync (enable: boolean): void {
     this.enableGASPSync = enable
-    this.logger.log(chalk.blue(`🔄 GASP synchronization ${enable ? 'enabled' : 'disabled'}.`))
+    this.logger.log(chalk.blue(`GASP synchronization ${enable ? 'enabled' : 'disabled'}.`))
   }
 
   /**
@@ -270,7 +304,7 @@ export default class OverlayExpress {
    */
   configureVerboseRequestLogging (enable: boolean): void {
     this.verboseRequestLogging = enable
-    this.logger.log(chalk.blue(`📝 Verbose request logging ${enable ? 'enabled' : 'disabled'}.`))
+    this.logger.log(chalk.blue(`Verbose request logging ${enable ? 'enabled' : 'disabled'}.`))
   }
 
   /**
@@ -285,11 +319,12 @@ export default class OverlayExpress {
       }
     }
     this.knex = Knex(config)
-    this.logger.log(chalk.blue('📦 Knex successfully configured.'))
+    this.logger.log(chalk.blue('Knex successfully configured.'))
   }
 
   /**
    * Configures the MongoDB database connection.
+   * Also initializes the BanService for persistent ban tracking.
    * @param connectionString - MongoDB connection string
    */
   async configureMongo (connectionString: string): Promise<void> {
@@ -297,7 +332,12 @@ export default class OverlayExpress {
     await mongoClient.connect()
     const db = mongoClient.db(`${this.name}_lookup_services`)
     this.mongoDb = db
-    this.logger.log(chalk.blue('🍃 MongoDB successfully configured and connected.'))
+
+    // Initialize the BanService
+    this.banService = new BanService(db)
+    await this.banService.ensureIndexes()
+
+    this.logger.log(chalk.blue('MongoDB successfully configured and connected.'))
   }
 
   /**
@@ -307,7 +347,7 @@ export default class OverlayExpress {
    */
   configureTopicManager (name: string, manager: TopicManager): void {
     this.managers[name] = manager
-    this.logger.log(chalk.blue(`🗂️ Configured topic manager ${name}`))
+    this.logger.log(chalk.blue(`Configured topic manager ${name}`))
   }
 
   /**
@@ -317,7 +357,7 @@ export default class OverlayExpress {
    */
   configureLookupService (name: string, service: LookupService): void {
     this.services[name] = service
-    this.logger.log(chalk.blue(`🔍 Configured lookup service ${name}`))
+    this.logger.log(chalk.blue(`Configured lookup service ${name}`))
   }
 
   /**
@@ -329,11 +369,11 @@ export default class OverlayExpress {
     name: string,
     serviceFactory: (knex: Knex.Knex) => { service: LookupService, migrations: Migration[] }
   ): void {
-    this.ensureKnex()
-    const factoryResult = serviceFactory(this.knex!)
+    const knex = this.ensureKnex()
+    const factoryResult = serviceFactory(knex)
     this.services[name] = factoryResult.service
     this.migrationsToRun.push(...factoryResult.migrations)
-    this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with Knex`))
+    this.logger.log(chalk.blue(`Configured lookup service ${name} with Knex`))
   }
 
   /**
@@ -342,9 +382,9 @@ export default class OverlayExpress {
    * @param serviceFactory - A factory function that creates a LookupService instance using MongoDB
    */
   configureLookupServiceWithMongo (name: string, serviceFactory: (mongoDb: Db) => LookupService): void {
-    this.ensureMongo()
-    this.services[name] = serviceFactory(this.mongoDb!)
-    this.logger.log(chalk.blue(`🔍 Configured lookup service ${name} with MongoDB`))
+    const mongoDb = this.ensureMongo()
+    this.services[name] = serviceFactory(mongoDb)
+    this.logger.log(chalk.blue(`Configured lookup service ${name} with MongoDB`))
   }
 
   /**
@@ -366,7 +406,7 @@ export default class OverlayExpress {
       ...this.engineConfig,
       ...params
     }
-    this.logger.log(chalk.blue('⚙️ Advanced Engine configuration params have been updated.'))
+    this.logger.log(chalk.blue('Advanced Engine configuration params have been updated.'))
   }
 
   /**
@@ -374,10 +414,14 @@ export default class OverlayExpress {
    * By default, auto-configures SHIP and SLAP unless autoConfigureShipSlap = false
    * Then it merges in any advanced engine config from `this.engineConfig`.
    *
+   * When a BanService is available (from configureMongo), SHIP and SLAP lookup
+   * services are automatically wrapped with BanAwareLookupWrapper to prevent
+   * GASP from re-syncing banned tokens.
+   *
    * @param autoConfigureShipSlap - Whether to auto-configure SHIP and SLAP services (default: true)
    */
   async configureEngine (autoConfigureShipSlap = true): Promise<void> {
-    this.ensureKnex()
+    const knex = this.ensureKnex()
 
     if (autoConfigureShipSlap) {
       // Auto-configure SHIP and SLAP services
@@ -389,6 +433,29 @@ export default class OverlayExpress {
       this.configureLookupServiceWithMongo('ls_slap', (db) => new DiscoveryServices.SLAPLookupService(
         new DiscoveryServices.SLAPStorage(db)
       ))
+    }
+
+    // Wrap SHIP/SLAP lookup services with ban-aware wrappers if BanService is available.
+    // This prevents GASP from re-syncing tokens whose domains or outpoints have been banned.
+    if (this.banService !== undefined) {
+      if (this.services.ls_ship !== undefined) {
+        this.services.ls_ship = new BanAwareLookupWrapper(
+          this.services.ls_ship,
+          this.banService,
+          'SHIP',
+          this.logger
+        )
+        this.logger.log(chalk.blue('SHIP lookup service wrapped with ban-aware filter.'))
+      }
+      if (this.services.ls_slap !== undefined) {
+        this.services.ls_slap = new BanAwareLookupWrapper(
+          this.services.ls_slap,
+          this.banService,
+          'SLAP',
+          this.logger
+        )
+        this.logger.log(chalk.blue('SLAP lookup service wrapped with ban-aware filter.'))
+      }
     }
 
     // Construct a default sync configuration, in case the user doesn't want GASP at all:
@@ -404,7 +471,7 @@ export default class OverlayExpress {
     }
 
     // Build the actual Storage
-    const storage = new KnexStorage(this.knex!)
+    const storage = new KnexStorage(knex)
     // Include the KnexStorage migrations
     this.migrationsToRun = [...KnexStorageMigrations.default, ...this.migrationsToRun]
 
@@ -478,37 +545,75 @@ export default class OverlayExpress {
       this.engineConfig.suppressDefaultSyncAdvertisements ?? true
     )
 
-    this.logger.log(chalk.green('🚀 Engine has been configured.'))
+    // Create the server wallet for BSV mutual authentication.
+    // This uses the same private key as the WalletAdvertiser.
+    try {
+      const keyDeriver = new KeyDeriver(new PrivateKey(this.privateKey, 'hex'))
+      const storageManager = new WalletStorageManager(keyDeriver.identityKey)
+      const signer = new WalletSigner(this.network, keyDeriver, storageManager)
+      const services = new Services(this.network)
+      const wallet = new Wallet(signer, services)
+      this.serverWallet = wallet
+
+      // Auto-set the admin identity key from the server's own key if not configured
+      if (typeof this.adminIdentityKey === 'undefined') {
+        this.adminIdentityKey = keyDeriver.identityKey
+      }
+
+      this.logger.log(chalk.blue('Server wallet initialized for BSV mutual authentication.'))
+    } catch (e) {
+      this.logger.log(chalk.yellow('Server wallet could not be initialized. BSV auth will not be available.'))
+    }
+
+    this.logger.log(chalk.green('Engine has been configured.'))
   }
 
   /**
-   * Ensures that Knex is configured.
+   * Ensures that Knex is configured and returns it.
    * @throws Error if Knex is not configured
    */
-  private ensureKnex (): void {
+  private ensureKnex (): Knex.Knex {
     if (typeof this.knex === 'undefined') {
       throw new Error('You must configure your SQL database with the .configureKnex() method first!')
     }
+    return this.knex
   }
 
   /**
-   * Ensures that MongoDB is configured.
+   * Ensures that MongoDB is configured and returns it.
    * @throws Error if MongoDB is not configured
    */
-  private ensureMongo (): void {
+  private ensureMongo (): Db {
     if (typeof this.mongoDb === 'undefined') {
       throw new Error('You must configure your MongoDB connection with the .configureMongo() method first!')
     }
+    return this.mongoDb
   }
 
   /**
-   * Ensures that the Overlay Engine is configured.
+   * Ensures that the Overlay Engine is configured and returns it.
    * @throws Error if the Engine is not configured
    */
-  private ensureEngine (): void {
+  private ensureEngine (): Engine {
     if (typeof this.engine === 'undefined') {
       throw new Error('You must configure your Overlay Services engine with the .configureEngine() method first!')
     }
+    return this.engine
+  }
+
+  /**
+   * Creates a JanitorService instance with current configuration.
+   */
+  private createJanitor (): JanitorService {
+    const mongoDb = this.ensureMongo()
+    return new JanitorService({
+      mongoDb,
+      logger: this.logger,
+      requestTimeoutMs: this.janitorConfig.requestTimeoutMs,
+      hostDownRevokeScore: this.janitorConfig.hostDownRevokeScore,
+      banService: this.banService,
+      autoBanOnRemoval: this.janitorConfig.autoBanOnRemoval
+    })
   }
 
   /**
@@ -516,10 +621,9 @@ export default class OverlayExpress {
    * Sets up routes and begins listening on the configured port.
    */
   async start (): Promise<void> {
-    this.ensureEngine()
-    this.ensureKnex()
-    const engine = this.engine!
-    const knex = this.knex!
+    const engine = this.ensureEngine()
+    const knex = this.ensureKnex()
+    this.startTime = new Date()
 
     this.app.use(bodyParser.json({ limit: '1gb', type: 'application/json' }))
     this.app.use(bodyParser.raw({ limit: '1gb', type: 'application/octet-stream' }))
@@ -529,7 +633,7 @@ export default class OverlayExpress {
         const startTime = Date.now()
 
         // Log incoming request details
-        this.logger.log(chalk.magenta.bold(`📥 Incoming Request: ${String(req.method)} ${String(req.originalUrl)}`))
+        this.logger.log(chalk.magenta.bold(`Incoming Request: ${String(req.method)} ${String(req.originalUrl)}`))
         // Pretty-print headers
         this.logger.log(chalk.cyan('Headers:'))
         this.logger.log(util.inspect(req.headers, { colors: true, depth: null }))
@@ -567,7 +671,7 @@ export default class OverlayExpress {
           const duration = Date.now() - startTime
           this.logger.log(
             chalk.magenta.bold(
-              `📤 Outgoing Response: ${String(req.method)} ${String(req.originalUrl)} - Status: ${String(res.statusCode)} - Duration: ${String(duration)}ms`
+              `Outgoing Response: ${String(req.method)} ${String(req.originalUrl)} - Status: ${String(res.statusCode)} - Duration: ${String(duration)}ms`
             )
           )
           this.logger.log(chalk.cyan('Response Headers:'))
@@ -616,7 +720,10 @@ export default class OverlayExpress {
     // Serve a static documentation site or user interface
     this.app.get('/', (req, res) => {
       res.set('content-type', 'text/html')
-      res.send(makeUserInterface(this.webUIConfig))
+      res.send(makeUserInterface({
+        ...this.webUIConfig,
+        adminIdentityKey: this.adminIdentityKey
+      }))
     })
 
     // Serve a health check endpoint
@@ -637,7 +744,6 @@ export default class OverlayExpress {
           })
         }
       })().catch(() => {
-        // This catch is for any unforeseen errors in the async IIFE itself
         res.status(500).json({
           status: 'error',
           message: 'Unexpected error'
@@ -742,7 +848,7 @@ export default class OverlayExpress {
             res.status(200).json(steak)
           }
         } catch (error) {
-          console.error(chalk.red('❌ Error in /submit:'), error)
+          console.error(chalk.red('Error in /submit:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -835,7 +941,7 @@ export default class OverlayExpress {
             await engine.handleNewMerkleProof(txid, merklePath, blockHeight)
             return res.status(200).json({ status: 'success', message: 'Transaction status updated' })
           } catch (error) {
-            console.error(chalk.red('❌ Error in /arc-ingest:'), error)
+            console.error(chalk.red('Error in /arc-ingest:'), error)
             return res.status(400).json({
               status: 'error',
               message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -849,7 +955,7 @@ export default class OverlayExpress {
         })
       })
     } else {
-      this.logger.warn(chalk.yellow('⚠️ Disabling ARC because no ARC API key was provided.'))
+      this.logger.warn(chalk.yellow('Disabling ARC because no ARC API key was provided.'))
     }
 
     // GASP sync routes if enabled
@@ -861,7 +967,7 @@ export default class OverlayExpress {
             const response = await engine.provideForeignSyncResponse(req.body, topic)
             return res.status(200).json(response)
           } catch (error) {
-            console.error(chalk.red('❌ Error in /requestSyncResponse:'), error)
+            console.error(chalk.red('Error in /requestSyncResponse:'), error)
             return res.status(400).json({
               status: 'error',
               message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -882,7 +988,7 @@ export default class OverlayExpress {
             const response = await engine.provideForeignGASPNode(graphID, txid, outputIndex)
             return res.status(200).json(response)
           } catch (error) {
-            console.error(chalk.red('❌ Error in /requestForeignGASPNode:'), error)
+            console.error(chalk.red('Error in /requestForeignGASPNode:'), error)
             return res.status(400).json({
               status: 'error',
               message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -896,31 +1002,430 @@ export default class OverlayExpress {
         })
       })
     } else {
-      this.logger.warn(chalk.yellow('⚠️ GASP sync is disabled.'))
+      this.logger.warn(chalk.yellow('GASP sync is disabled.'))
     }
 
     /**
      * ============== ADMIN ROUTES ==============
-     * These routes expose advanced engine operations
-     * and require a valid Bearer token for access.
+     * These routes expose advanced engine operations.
+     * Authentication: Bearer token OR BSV mutual auth (identity key match).
      */
 
     /**
-     * Middleware for checking the admin bearer token.
+     * Set up BSV mutual authentication middleware if a server wallet is available.
+     * This handles the /.well-known/auth handshake automatically.
+     * With allowUnauthenticated: true, it passes through when no BSV auth headers
+     * are present, allowing Bearer token fallback.
+     */
+    if (this.serverWallet !== undefined) {
+      const bsvAuth = createAuthMiddleware({
+        wallet: this.serverWallet,
+        allowUnauthenticated: true
+      })
+      this.app.use(bsvAuth as any)
+      this.logger.log(chalk.blue('BSV mutual authentication middleware enabled.'))
+    }
+
+    /**
+     * Middleware for checking admin authentication.
+     * Supports two authentication methods:
+     * 1. Bearer token (Authorization: Bearer <token>) - for cron jobs, scripts, and fallback
+     * 2. BSV mutual auth - if req.auth.identityKey matches the admin identity key
      */
     const checkAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
+      // Method 1: BSV mutual authentication (identity key match)
+      const authReq = req as AuthRequest
+      if (
+        typeof this.adminIdentityKey === 'string' &&
+        authReq.auth !== undefined &&
+        typeof authReq.auth.identityKey === 'string' &&
+        authReq.auth.identityKey !== 'unknown' &&
+        authReq.auth.identityKey === this.adminIdentityKey
+      ) {
+        next()
+        return
+      }
+
+      // Method 2: Bearer token authentication
       const authHeader = req.headers.authorization
-      if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ status: 'error', message: 'Unauthorized: Missing Bearer token' })
+      if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring('Bearer '.length)
+        if (token === this.adminToken) {
+          next()
+          return
+        }
+        res.status(403).json({ status: 'error', message: 'Forbidden: Invalid credentials' })
         return
       }
-      const token = authHeader.substring('Bearer '.length)
-      if (token !== this.adminToken) {
-        res.status(403).json({ status: 'error', message: 'Forbidden: Invalid Bearer token' })
-        return
-      }
-      next()
+
+      res.status(401).json({ status: 'error', message: 'Unauthorized: Provide a Bearer token or authenticate with your wallet' })
     }
+
+    /**
+     * Public endpoint that returns the admin identity key (if configured).
+     * This allows the frontend to detect whether the current wallet user
+     * is the admin by comparing their identity key against this value.
+     * The identity key is a public key, so exposing it is safe.
+     */
+    this.app.get('/admin/config', (_, res) => {
+      res.status(200).json({
+        adminIdentityKey: this.adminIdentityKey ?? null,
+        nodeName: this.name
+      })
+    })
+
+    /**
+     * Admin route: Get server statistics and overview.
+     */
+    this.app.get('/admin/stats', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          const db = this.ensureMongo()
+
+          const [shipCount, slapCount, banStats] = await Promise.all([
+            db.collection('shipRecords').countDocuments(),
+            db.collection('slapRecords').countDocuments(),
+            this.banService?.getStats() ?? { domainBans: 0, outpointBans: 0, totalBans: 0 }
+          ])
+
+          return res.status(200).json({
+            status: 'success',
+            data: {
+              nodeName: this.name,
+              network: this.network,
+              uptime: this.startTime !== undefined ? Date.now() - this.startTime.getTime() : 0,
+              startedAt: this.startTime?.toISOString(),
+              shipRecordCount: shipCount,
+              slapRecordCount: slapCount,
+              bannedDomains: banStats.domainBans,
+              bannedOutpoints: banStats.outpointBans,
+              totalBans: banStats.totalBans,
+              topicManagers: Object.keys(this.managers),
+              lookupServices: Object.keys(this.services),
+              gaspSyncEnabled: this.enableGASPSync
+            }
+          })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: List all SHIP records with full details.
+     */
+    this.app.get('/admin/ship-records', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          const db = this.ensureMongo()
+          const collection = db.collection('shipRecords')
+
+          const search = typeof req.query.search === 'string' ? req.query.search : undefined
+          const rawPage = parseInt(req.query.page as string, 10)
+          const page = Math.max(1, Number.isNaN(rawPage) ? 1 : rawPage)
+          const rawLimit = parseInt(req.query.limit as string, 10)
+          const limit = Math.min(200, Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit))
+          const skip = (page - 1) * limit
+
+          const query: any = {}
+          if (typeof search === 'string' && search.length > 0) {
+            query.$or = [
+              { domain: { $regex: search, $options: 'i' } },
+              { topic: { $regex: search, $options: 'i' } },
+              { identityKey: { $regex: search, $options: 'i' } },
+              { txid: { $regex: search, $options: 'i' } }
+            ]
+          }
+
+          const [records, total] = await Promise.all([
+            collection.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+            collection.countDocuments(query)
+          ])
+
+          return res.status(200).json({
+            status: 'success',
+            data: { records, total, page, limit, pages: Math.ceil(total / limit) }
+          })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: List all SLAP records with full details.
+     */
+    this.app.get('/admin/slap-records', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          const db = this.ensureMongo()
+          const collection = db.collection('slapRecords')
+
+          const search = typeof req.query.search === 'string' ? req.query.search : undefined
+          const rawPage = parseInt(req.query.page as string, 10)
+          const page = Math.max(1, Number.isNaN(rawPage) ? 1 : rawPage)
+          const rawLimit = parseInt(req.query.limit as string, 10)
+          const limit = Math.min(200, Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit))
+          const skip = (page - 1) * limit
+
+          const query: any = {}
+          if (typeof search === 'string' && search.length > 0) {
+            query.$or = [
+              { domain: { $regex: search, $options: 'i' } },
+              { service: { $regex: search, $options: 'i' } },
+              { identityKey: { $regex: search, $options: 'i' } },
+              { txid: { $regex: search, $options: 'i' } }
+            ]
+          }
+
+          const [records, total] = await Promise.all([
+            collection.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+            collection.countDocuments(query)
+          ])
+
+          return res.status(200).json({
+            status: 'success',
+            data: { records, total, page, limit, pages: Math.ceil(total / limit) }
+          })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: Check health of a specific URL.
+     */
+    this.app.post('/admin/health-check', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          const { url } = req.body
+          if (typeof url !== 'string' || url.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'url is required' })
+          }
+          const janitor = this.createJanitor()
+          const result = await janitor.checkHost(url)
+          return res.status(200).json({ status: 'success', data: { url, ...result } })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: Ban a domain or outpoint.
+     */
+    this.app.post('/admin/ban', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          if (this.banService === undefined) {
+            return res.status(400).json({ status: 'error', message: 'Ban service not available (MongoDB not configured)' })
+          }
+
+          const { type, value, reason } = req.body
+          if (type !== 'domain' && type !== 'outpoint') {
+            return res.status(400).json({ status: 'error', message: 'type must be "domain" or "outpoint"' })
+          }
+          if (typeof value !== 'string' || value.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'value is required' })
+          }
+
+          if (type === 'domain') {
+            await this.banService.banDomain(value, reason)
+
+            // Also remove any existing records for this domain from SHIP and SLAP
+            const db = this.ensureMongo()
+            const [shipDeleted, slapDeleted] = await Promise.all([
+              db.collection('shipRecords').deleteMany({ domain: value }),
+              db.collection('slapRecords').deleteMany({ domain: value })
+            ])
+
+            return res.status(200).json({
+              status: 'success',
+              message: `Domain "${value}" banned. Removed ${shipDeleted.deletedCount} SHIP and ${slapDeleted.deletedCount} SLAP records.`
+            })
+          } else {
+            // Parse outpoint: "txid.outputIndex"
+            const dotIndex = value.lastIndexOf('.')
+            if (dotIndex === -1) {
+              return res.status(400).json({ status: 'error', message: 'Outpoint format must be "txid.outputIndex"' })
+            }
+            const txid = value.substring(0, dotIndex)
+            const outputIndex = parseInt(value.substring(dotIndex + 1))
+            if (isNaN(outputIndex)) {
+              return res.status(400).json({ status: 'error', message: 'Invalid outputIndex in outpoint' })
+            }
+
+            await this.banService.banOutpoint(txid, outputIndex, reason)
+
+            // Also evict from lookup services
+            const services = Object.values(engine.lookupServices)
+            for (const service of services) {
+              try {
+                await service.outputEvicted(txid, outputIndex)
+              } catch {
+                continue
+              }
+            }
+
+            return res.status(200).json({
+              status: 'success',
+              message: `Outpoint "${value}" banned and evicted from lookup services.`
+            })
+          }
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: Remove a ban.
+     */
+    this.app.post('/admin/unban', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          if (this.banService === undefined) {
+            return res.status(400).json({ status: 'error', message: 'Ban service not available' })
+          }
+          const { type, value } = req.body as { type: unknown, value: unknown }
+          if (type !== 'domain' && type !== 'outpoint') {
+            return res.status(400).json({ status: 'error', message: 'type must be "domain" or "outpoint"' })
+          }
+          if (typeof value !== 'string' || value.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'value is required' })
+          }
+
+          await this.banService.removeBan(type, value)
+          return res.status(200).json({ status: 'success', message: `${type} "${String(value)}" unbanned.` })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: List all bans.
+     */
+    this.app.get('/admin/bans', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          if (this.banService === undefined) {
+            return res.status(200).json({ status: 'success', data: { bans: [] } })
+          }
+          const type = req.query.type as 'domain' | 'outpoint' | undefined
+          const validType = type === 'domain' || type === 'outpoint' ? type : undefined
+          const bans = await this.banService.listBans(validType)
+          return res.status(200).json({ status: 'success', data: { bans } })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
+
+    /**
+     * Admin route: Remove a token by outpoint, optionally banning the domain.
+     */
+    this.app.post('/admin/remove-token', checkAdminAuth as any, (req, res) => {
+      ; (async () => {
+        try {
+          const { txid, outputIndex, service, ban, banDomain: shouldBanDomain } = req.body
+          if (typeof txid !== 'string' || typeof outputIndex !== 'number') {
+            return res.status(400).json({ status: 'error', message: 'txid (string) and outputIndex (number) are required' })
+          }
+
+          // Get the domain before removing (for ban option)
+          let removedDomain: string | undefined
+          if (shouldBanDomain === true || ban === true) {
+            const db = this.ensureMongo()
+            const shipRecord = await db.collection('shipRecords').findOne({ txid, outputIndex })
+            const slapRecord = await db.collection('slapRecords').findOne({ txid, outputIndex })
+            removedDomain = (shipRecord?.domain ?? slapRecord?.domain) as string | undefined
+          }
+
+          // Evict from specified service or all services
+          if (typeof service === 'string') {
+            const svc = engine.lookupServices[service]
+            if (svc !== undefined) {
+              await svc.outputEvicted(txid, outputIndex)
+            }
+          } else {
+            const services = Object.values(engine.lookupServices)
+            for (const svc of services) {
+              try {
+                await svc.outputEvicted(txid, outputIndex)
+              } catch {
+                continue
+              }
+            }
+          }
+
+          // Ban the outpoint if requested
+          if (ban === true && this.banService !== undefined) {
+            await this.banService.banOutpoint(txid, outputIndex, 'Manually removed by admin', removedDomain)
+          }
+
+          // Ban the domain if requested
+          if (shouldBanDomain === true && typeof removedDomain === 'string' && this.banService !== undefined) {
+            await this.banService.banDomain(removedDomain, 'Domain banned by admin via token removal')
+
+            // Remove all records for this domain
+            const banDb = this.ensureMongo()
+            await Promise.all([
+              banDb.collection('shipRecords').deleteMany({ domain: removedDomain }),
+              banDb.collection('slapRecords').deleteMany({ domain: removedDomain })
+            ])
+          }
+
+          return res.status(200).json({
+            status: 'success',
+            message: `Token ${txid}.${outputIndex} removed.${ban === true ? ' Outpoint banned.' : ''}${shouldBanDomain === true && typeof removedDomain === 'string' ? ` Domain "${removedDomain}" banned.` : ''}`
+          })
+        } catch (error) {
+          return res.status(400).json({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'An unknown error occurred'
+          })
+        }
+      })().catch(() => {
+        res.status(500).json({ status: 'error', message: 'Unexpected error' })
+      })
+    })
 
     /**
      * Admin route to manually sync advertisements, calling `engine.syncAdvertisements()`.
@@ -931,7 +1436,7 @@ export default class OverlayExpress {
           await engine.syncAdvertisements()
           return res.status(200).json({ status: 'success', message: 'Advertisements synced successfully' })
         } catch (error) {
-          console.error(chalk.red('❌ Error in /admin/syncAdvertisements:'), error)
+          console.error(chalk.red('Error in /admin/syncAdvertisements:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -954,7 +1459,7 @@ export default class OverlayExpress {
           await engine.startGASPSync()
           return res.status(200).json({ status: 'success', message: 'GASP sync started and completed' })
         } catch (error) {
-          console.error(chalk.red('❌ Error in /admin/startGASPSync:'), error)
+          console.error(chalk.red('Error in /admin/startGASPSync:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -989,7 +1494,7 @@ export default class OverlayExpress {
           }
           return res.status(200).json({ status: 'success', message: 'Outpoint evicted' })
         } catch (error) {
-          console.error(chalk.red('❌ Error in /admin/evictOutpoint:'), error)
+          console.error(chalk.red('Error in /admin/evictOutpoint:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -1004,22 +1509,16 @@ export default class OverlayExpress {
     })
 
     /**
-     * Admin route to run the janitor service.
+     * Admin route to run the janitor service with enhanced reporting.
      */
     this.app.post('/admin/janitor', checkAdminAuth as any, (req, res) => {
       ; (async () => {
         try {
-          this.ensureMongo()
-          const janitor = new JanitorService({
-            mongoDb: this.mongoDb!,
-            logger: this.logger,
-            requestTimeoutMs: this.janitorConfig.requestTimeoutMs,
-            hostDownRevokeScore: this.janitorConfig.hostDownRevokeScore
-          })
-          await janitor.run()
-          return res.status(200).json({ status: 'success', message: 'Janitor run completed' })
+          const janitor = this.createJanitor()
+          const report: JanitorReport = await janitor.run()
+          return res.status(200).json({ status: 'success', message: 'Janitor run completed', data: report })
         } catch (error) {
-          console.error(chalk.red('❌ Error in /admin/janitor:'), error)
+          console.error(chalk.red('Error in /admin/janitor:'), error)
           return res.status(400).json({
             status: 'error',
             message: error instanceof Error ? error.message : 'An unknown error occurred'
@@ -1038,11 +1537,11 @@ export default class OverlayExpress {
     const result = await knex.migrate.latest({
       migrationSource
     })
-    this.logger.log(chalk.green('🔄 Knex migrations run'), result)
+    this.logger.log(chalk.green('Knex migrations run'), result)
 
     // 404 handler for all other routes
     this.app.use((req, res) => {
-      this.logger.log(chalk.red('❌ 404 Not Found:'), req.url)
+      this.logger.log(chalk.red('404 Not Found:'), req.url)
       res.status(404).json({
         status: 'error',
         code: 'ERR_ROUTE_NOT_FOUND',
@@ -1070,7 +1569,7 @@ export default class OverlayExpress {
     try {
       await this.engine?.syncAdvertisements()
     } catch (e) {
-      this.logger.log(chalk.red('❌ Error syncing advertisements:'), e)
+      this.logger.log(chalk.red('Error syncing advertisements:'), e)
     }
 
     // Attempt to do GASP sync if enabled
@@ -1080,7 +1579,7 @@ export default class OverlayExpress {
         await this.engine?.startGASPSync()
         this.logger.log(chalk.green('GASP sync complete!'))
       } catch (e) {
-        console.error(chalk.red('❌ Failed to GASP sync'), e)
+        console.error(chalk.red('Failed to GASP sync'), e)
       }
     } else {
       this.logger.log(chalk.yellow(`${this.name} will not sync because GASP has been disabled.`))
@@ -1088,7 +1587,7 @@ export default class OverlayExpress {
 
     // Start listening on the configured port
     this.app.listen(this.port, () => {
-      this.logger.log(chalk.green.bold(`🎧 ${this.name} is ready and listening on local port ${this.port}`))
+      this.logger.log(chalk.green.bold(`${this.name} is ready and listening on local port ${this.port}`))
     })
   }
 }

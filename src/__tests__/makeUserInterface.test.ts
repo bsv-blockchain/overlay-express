@@ -47,9 +47,10 @@ describe('makeUserInterface', () => {
       }
       const html = makeUserInterface(config)
 
-      expect(html).toContain('https://custom-host.com/listTopicManagers')
-      expect(html).toContain('https://custom-host.com/listLookupServiceProviders')
-      expect(html).toContain('https://custom-host.com/getDocumentationForTopicManager')
+      // HOST is set as a JS variable; URLs are built at runtime in the browser
+      expect(html).toContain("const HOST = 'https://custom-host.com'")
+      expect(html).toContain("HOST + '/listTopicManagers'")
+      expect(html).toContain('/getDocumentationForTopicManager')
     })
 
     it('should use custom favicon URL', () => {
