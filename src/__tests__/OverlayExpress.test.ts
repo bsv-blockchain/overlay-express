@@ -12,6 +12,19 @@ jest.mock('@bsv/overlay')
 jest.mock('@bsv/sdk')
 jest.mock('@bsv/overlay-discovery-services')
 
+/** Creates a mock MongoDB Db object with a collection stub that supports BanService */
+function createMockDbValue (): Record<string, any> {
+  const mockCollection = {
+    createIndex: jest.fn<any>().mockResolvedValue(undefined),
+    find: jest.fn<any>().mockReturnValue({ sort: jest.fn<any>().mockReturnValue({ toArray: jest.fn<any>().mockResolvedValue([]) }), toArray: jest.fn<any>().mockResolvedValue([]) }),
+    findOne: jest.fn<any>().mockResolvedValue(null),
+    updateOne: jest.fn<any>().mockResolvedValue({}),
+    deleteOne: jest.fn<any>().mockResolvedValue({}),
+    countDocuments: jest.fn<any>().mockResolvedValue(0)
+  }
+  return { collection: jest.fn<any>().mockReturnValue(mockCollection) }
+}
+
 describe('OverlayExpress', () => {
   let overlayExpress: OverlayExpress
 
@@ -257,7 +270,7 @@ describe('OverlayExpress', () => {
     it('should configure MongoDB connection', async () => {
       // @ts-expect-error - Mock resolved value
       const mockConnect = jest.fn().mockResolvedValue(undefined)
-      const mockDb = jest.fn().mockReturnValue({})
+      const mockDb = jest.fn().mockReturnValue(createMockDbValue())
       const mockClient = {
         connect: mockConnect,
         db: mockDb
@@ -373,7 +386,7 @@ describe('OverlayExpress', () => {
     beforeEach(async () => {
       // @ts-expect-error - Mock resolved value
       const mockConnect = jest.fn().mockResolvedValue(undefined)
-      const mockDb = jest.fn().mockReturnValue({})
+      const mockDb = jest.fn().mockReturnValue(createMockDbValue())
       const mockClient = {
         connect: mockConnect,
         db: mockDb
@@ -452,7 +465,7 @@ describe('OverlayExpress', () => {
 
       // @ts-expect-error - Mock resolved value
       const mockConnect = jest.fn().mockResolvedValue(undefined)
-      const mockDb = jest.fn().mockReturnValue({})
+      const mockDb = jest.fn().mockReturnValue(createMockDbValue())
       const mockClient = {
         connect: mockConnect,
         db: mockDb
@@ -504,7 +517,7 @@ describe('OverlayExpress', () => {
 
       // @ts-expect-error - Mock resolved value
       const mockConnect = jest.fn().mockResolvedValue(undefined)
-      const mockDb = jest.fn().mockReturnValue({})
+      const mockDb = jest.fn().mockReturnValue(createMockDbValue())
       const mockClient = {
         connect: mockConnect,
         db: mockDb
@@ -568,7 +581,7 @@ describe('OverlayExpress', () => {
 
       // @ts-expect-error - Mock resolved value
       const mockConnect = jest.fn().mockResolvedValue(undefined)
-      const mockDb = jest.fn().mockReturnValue({})
+      const mockDb = jest.fn().mockReturnValue(createMockDbValue())
       const mockClient = {
         connect: mockConnect,
         db: mockDb
@@ -667,7 +680,7 @@ describe('OverlayExpress', () => {
 
       // @ts-expect-error - Mock return value
       const mockConnect = jest.fn().mockResolvedValue(undefined)
-      const mockDb = jest.fn().mockReturnValue({})
+      const mockDb = jest.fn().mockReturnValue(createMockDbValue())
       const mockClient = {
         connect: mockConnect,
         db: mockDb

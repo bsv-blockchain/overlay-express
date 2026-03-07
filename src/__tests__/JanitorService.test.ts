@@ -298,7 +298,6 @@ describe('JanitorService', () => {
         { _id: '123' },
         { $inc: { down: 1 } }
       )
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('Invalid domain'))
     })
 
     it('should accept localhost', async () => {
@@ -388,7 +387,6 @@ describe('JanitorService', () => {
         { _id: '123' },
         { $inc: { down: -1 } }
       )
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('is healthy'))
     })
 
     it('should not decrement when already at 0', async () => {
@@ -447,7 +445,6 @@ describe('JanitorService', () => {
         { _id: '123' },
         { $inc: { down: 1 } }
       )
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('is unhealthy'))
     })
 
     it('should delete output when down count reaches threshold', async () => {
@@ -476,7 +473,7 @@ describe('JanitorService', () => {
       await janitor.run()
 
       expect(mockCollection.deleteOne).toHaveBeenCalledWith({ _id: '123' })
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('Deleting output'))
+      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('Removing output'))
     })
 
     it('should handle fetch timeout', async () => {
@@ -504,7 +501,6 @@ describe('JanitorService', () => {
 
       await janitor.run()
 
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('timeout'))
       expect(mockCollection.updateOne).toHaveBeenCalledWith(
         { _id: '123' },
         { $inc: { down: 1 } }

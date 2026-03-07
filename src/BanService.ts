@@ -34,6 +34,18 @@ export class BanService {
   }
 
   /**
+   * Sanitizes a value for use in MongoDB queries, preventing NoSQL injection.
+   * Ensures the value is a plain string and rejects objects/arrays that could
+   * contain MongoDB operators like $ne, $gt, etc.
+   */
+  private sanitize (value: unknown): string {
+    if (typeof value !== 'string') {
+      throw new Error('Invalid input: expected a string value')
+    }
+    return value
+  }
+
+  /**
    * Creates indexes for efficient ban lookups.
    */
   async ensureIndexes (): Promise<void> {
@@ -45,12 +57,13 @@ export class BanService {
    * Bans a domain, preventing any SHIP/SLAP tokens referencing it from being stored.
    */
   async banDomain (domain: string, reason?: string, bannedBy?: string): Promise<void> {
+    const safeDomain = this.sanitize(domain)
     await this.bans.updateOne(
-      { type: 'domain', value: domain },
+      { type: 'domain', value: safeDomain },
       {
         $set: {
           type: 'domain',
-          value: domain,
+          value: safeDomain,
           reason: reason ?? 'Manually banned',
           bannedAt: new Date(),
           bannedBy
@@ -64,14 +77,14 @@ export class BanService {
    * Removes a domain ban.
    */
   async unbanDomain (domain: string): Promise<void> {
-    await this.bans.deleteOne({ type: 'domain', value: domain })
+    await this.bans.deleteOne({ type: 'domain', value: this.sanitize(domain) })
   }
 
   /**
    * Checks if a domain is banned.
    */
   async isDomainBanned (domain: string): Promise<boolean> {
-    const record = await this.bans.findOne({ type: 'domain', value: domain })
+    const record = await this.bans.findOne({ type: 'domain', value: this.sanitize(domain) })
     return record !== null
   }
 
@@ -79,14 +92,14 @@ export class BanService {
    * Bans a specific outpoint (txid.outputIndex), preventing it from being re-admitted.
    */
   async banOutpoint (txid: string, outputIndex: number, reason?: string, domain?: string, bannedBy?: string): Promise<void> {
-    const value = `${txid}.${outputIndex}`
+    const value = `${this.sanitize(txid)}.${Number(outputIndex)}`
     await this.bans.updateOne(
       { type: 'outpoint', value },
       {
         $set: {
           type: 'outpoint',
           value,
-          domain,
+          domain: domain !== undefined ? this.sanitize(domain) : undefined,
           reason: reason ?? 'Manually banned',
           bannedAt: new Date(),
           bannedBy
@@ -100,7 +113,7 @@ export class BanService {
    * Removes an outpoint ban.
    */
   async unbanOutpoint (txid: string, outputIndex: number): Promise<void> {
-    const value = `${txid}.${outputIndex}`
+    const value = `${this.sanitize(txid)}.${Number(outputIndex)}`
     await this.bans.deleteOne({ type: 'outpoint', value })
   }
 
@@ -108,7 +121,7 @@ export class BanService {
    * Checks if a specific outpoint is banned.
    */
   async isOutpointBanned (txid: string, outputIndex: number): Promise<boolean> {
-    const value = `${txid}.${outputIndex}`
+    const value = `${this.sanitize(txid)}.${Number(outputIndex)}`
     const record = await this.bans.findOne({ type: 'outpoint', value })
     return record !== null
   }
@@ -125,7 +138,7 @@ export class BanService {
    * Removes a ban by type and value.
    */
   async removeBan (type: 'domain' | 'outpoint', value: string): Promise<void> {
-    await this.bans.deleteOne({ type, value })
+    await this.bans.deleteOne({ type: this.sanitize(type) as 'domain' | 'outpoint', value: this.sanitize(value) })
   }
 
   /**
