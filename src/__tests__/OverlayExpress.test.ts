@@ -22,7 +22,11 @@ function createMockDbValue (): Record<string, any> {
     deleteOne: jest.fn<any>().mockResolvedValue({}),
     countDocuments: jest.fn<any>().mockResolvedValue(0)
   }
-  return { collection: jest.fn<any>().mockReturnValue(mockCollection) }
+  return {
+    collection: jest.fn<any>().mockReturnValue(mockCollection),
+    command: jest.fn<any>().mockResolvedValue({ ok: 1 }),
+    databaseName: 'TestService_lookup_services'
+  }
 }
 
 describe('OverlayExpress', () => {
@@ -753,7 +757,7 @@ describe('OverlayExpress', () => {
       expect(corsMiddleware).toBeDefined()
     })
 
-    it('should register health check route', async () => {
+    it('should register health check routes', async () => {
       const getSpy = jest.spyOn(instance.app, 'get')
       jest.spyOn(instance.app, 'listen').mockImplementation((port: any, callback: any) => {
         callback()
@@ -762,8 +766,42 @@ describe('OverlayExpress', () => {
 
       await instance.start()
 
-      const healthRoute = getSpy.mock.calls.find(call => call[0] === '/health')
-      expect(healthRoute).toBeDefined()
+      expect(getSpy.mock.calls.find(call => call[0] === '/health')).toBeDefined()
+      expect(getSpy.mock.calls.find(call => call[0] === '/health/live')).toBeDefined()
+      expect(getSpy.mock.calls.find(call => call[0] === '/health/ready')).toBeDefined()
+    })
+
+    it('should return detailed readiness health', async () => {
+      const getSpy = jest.spyOn(instance.app, 'get')
+      jest.spyOn(instance.app, 'listen').mockImplementation((port: any, callback: any) => {
+        callback()
+        return {} as any
+      })
+
+      await instance.start()
+
+      const readyRoute = getSpy.mock.calls.find(call => call[0] === '/health/ready')
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+      }
+
+      readyRoute?.[1]({} as any, res as any)
+      await new Promise(resolve => setImmediate(resolve))
+
+      expect(res.status).toHaveBeenCalledWith(200)
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        status: 'ok',
+        ready: true,
+        service: expect.objectContaining({
+          name: 'TestServer'
+        }),
+        checks: expect.arrayContaining([
+          expect.objectContaining({ name: 'engine', status: 'ok' }),
+          expect.objectContaining({ name: 'knex', status: 'ok' }),
+          expect.objectContaining({ name: 'mongo', status: 'ok' })
+        ])
+      }))
     })
 
     it('should register admin routes', async () => {

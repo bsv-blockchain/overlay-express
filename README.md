@@ -86,6 +86,36 @@ server.configureEngineParams({
 
 We also now provide admin-protected endpoints for certain advanced operations like manually syncing advertisements or triggering GASP sync. These endpoints require a Bearer token. You can supply a custom token in the constructor of `OverlayExpress`, or retrieve the auto-generated token by calling `server.getAdminToken()`. You can then include this token as a Bearer token in the `Authorization` header of requests to the `/admin/syncAdvertisements` and `/admin/startGASPSync` endpoints.
 
+### Health Endpoints
+
+Overlay Express now exposes three health endpoints:
+
+- `GET /health/live`: liveness-only status for process-level checks.
+- `GET /health/ready`: readiness status for critical dependencies such as the Overlay engine, Knex, and MongoDB.
+- `GET /health`: full component report combining liveness, readiness, service metadata, and any registered custom checks.
+
+You can attach additional application-aware checks and context:
+
+```typescript
+server.configureHealth({
+  contextProvider: async () => ({
+    deployment: 'cars-project-backend',
+    network: process.env.NETWORK
+  })
+})
+
+server.registerHealthCheck({
+  name: 'custom-cache',
+  critical: false,
+  handler: async () => ({
+    status: 'ok',
+    details: { warmed: true }
+  })
+})
+```
+
+The janitor service also understands the richer `/health` response format, so existing SHIP/SLAP health validation remains compatible.
+
 ## License
 
 The license for the code in this repository is the Open BSV License. Refer to [LICENSE.txt](./LICENSE.txt) for the license text.

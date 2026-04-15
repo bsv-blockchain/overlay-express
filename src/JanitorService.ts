@@ -161,7 +161,7 @@ export class JanitorService {
         }
 
         const data = await response.json()
-        const healthy = data?.status === 'ok'
+        const healthy = (data?.status === 'ok' && data?.ready !== false) || (data?.ready === true && data?.live !== false)
         return { healthy, responseTimeMs, statusCode: response.status, error: healthy ? undefined : 'Unexpected response' }
       } catch (error: any) {
         clearTimeout(timeout)

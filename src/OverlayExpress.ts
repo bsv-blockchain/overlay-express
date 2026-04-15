@@ -94,6 +94,51 @@ export interface EngineConfig {
   suppressDefaultSyncAdvertisements?: boolean
 }
 
+export type HealthStatus = 'ok' | 'degraded' | 'error'
+
+export interface HealthCheckResult {
+  name: string
+  scope: 'live' | 'ready'
+  status: HealthStatus
+  critical: boolean
+  message?: string
+  details?: Record<string, any>
+  durationMs: number
+}
+
+export type HealthCheckHandler = () => Promise<Omit<HealthCheckResult, 'name' | 'scope' | 'critical' | 'durationMs'> | void> | Omit<HealthCheckResult, 'name' | 'scope' | 'critical' | 'durationMs'> | void
+
+export interface HealthCheckDefinition {
+  name: string
+  scope?: 'live' | 'ready'
+  critical?: boolean
+  handler: HealthCheckHandler
+}
+
+export interface HealthConfig {
+  includeDetails: boolean
+  timeoutMs: number
+  contextProvider?: () => Promise<Record<string, any> | undefined> | Record<string, any> | undefined
+}
+
+export interface HealthReport {
+  status: HealthStatus
+  live: boolean
+  ready: boolean
+  service: {
+    name: string
+    advertisableFQDN: string
+    port: number
+    network: 'main' | 'test'
+    startedAt?: string
+    uptimeMs: number
+    topicManagerCount: number
+    lookupServiceCount: number
+  }
+  checks: HealthCheckResult[]
+  context?: Record<string, any>
+}
+
 /**
  * OverlayExpress class provides an Express-based server for hosting Overlay Services.
  * It allows configuration of various components like databases, topic managers, and lookup services.
@@ -117,6 +162,9 @@ export default class OverlayExpress {
 
   // MongoDB database
   mongoDb?: Db
+
+  // MongoDB client retained for health checks
+  mongoClient?: MongoClient
 
   // Network ('main' or 'test')
   network: 'main' | 'test' = 'main'
@@ -178,6 +226,18 @@ export default class OverlayExpress {
   // Server start time for uptime tracking
   private startTime?: Date
 
+  // Health endpoint configuration
+  healthConfig: HealthConfig = {
+    includeDetails: true,
+    timeoutMs: 5000
+  }
+
+  // Extra application-specific health checks
+  healthChecks: HealthCheckDefinition[] = []
+
+  // Lifecycle marker for readiness/liveness reporting
+  isListening: boolean = false
+
   /**
    * Constructs an instance of OverlayExpress.
    * @param name - The name of the service
@@ -235,6 +295,30 @@ export default class OverlayExpress {
       ...config
     }
     this.logger.log(chalk.blue('Janitor service has been configured.'))
+  }
+
+  /**
+   * Configures health-report behavior.
+   */
+  configureHealth (config: Partial<HealthConfig>): void {
+    this.healthConfig = {
+      ...this.healthConfig,
+      ...config
+    }
+    this.logger.log(chalk.blue('Health reporting has been configured.'))
+  }
+
+  /**
+   * Registers an application-specific health check.
+   */
+  registerHealthCheck (definition: HealthCheckDefinition): void {
+    this.healthChecks = this.healthChecks.filter(check => check.name !== definition.name)
+    this.healthChecks.push({
+      scope: 'ready',
+      critical: false,
+      ...definition
+    })
+    this.logger.log(chalk.blue(`Registered health check ${definition.name}`))
   }
 
   /**
@@ -330,6 +414,7 @@ export default class OverlayExpress {
   async configureMongo (connectionString: string): Promise<void> {
     const mongoClient = new MongoClient(connectionString)
     await mongoClient.connect()
+    this.mongoClient = mongoClient
     const db = mongoClient.db(`${this.name}_lookup_services`)
     this.mongoDb = db
 
@@ -616,6 +701,170 @@ export default class OverlayExpress {
     })
   }
 
+  private async runHealthCheck (
+    definition: Required<Pick<HealthCheckDefinition, 'name' | 'scope' | 'critical'>> & { handler: HealthCheckHandler }
+  ): Promise<HealthCheckResult> {
+    const startedAt = Date.now()
+
+    try {
+      const result = ((await Promise.race([
+        Promise.resolve(definition.handler()),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`Timed out after ${this.healthConfig.timeoutMs}ms`)), this.healthConfig.timeoutMs)
+        })
+      ])) ?? {}) as {
+        status?: HealthStatus
+        message?: string
+        details?: Record<string, any>
+      }
+
+      return {
+        name: definition.name,
+        scope: definition.scope,
+        critical: definition.critical,
+        status: result.status ?? 'ok',
+        message: result.message,
+        details: result.details,
+        durationMs: Date.now() - startedAt
+      }
+    } catch (error) {
+      return {
+        name: definition.name,
+        scope: definition.scope,
+        critical: definition.critical,
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown health-check error',
+        durationMs: Date.now() - startedAt
+      }
+    }
+  }
+
+  private async collectHealthReport (mode: 'live' | 'ready' | 'full'): Promise<HealthReport> {
+    const definitions: Array<Required<Pick<HealthCheckDefinition, 'name' | 'scope' | 'critical'>> & { handler: HealthCheckHandler }> = [
+      {
+        name: 'process',
+        scope: 'live',
+        critical: true,
+        handler: async () => ({
+          status: 'ok',
+          details: {
+            listening: this.isListening
+          }
+        })
+      },
+      {
+        name: 'engine',
+        scope: 'ready',
+        critical: true,
+        handler: async () => {
+          if (typeof this.engine === 'undefined') {
+            throw new Error('Overlay engine is not configured')
+          }
+
+          return {
+            status: 'ok',
+            details: {
+              topicManagers: Object.keys(this.managers),
+              lookupServices: Object.keys(this.services)
+            }
+          }
+        }
+      },
+      {
+        name: 'knex',
+        scope: 'ready',
+        critical: true,
+        handler: async () => {
+          if (typeof this.knex === 'undefined') {
+            throw new Error('Knex is not configured')
+          }
+
+          await this.knex.raw('select 1 as ok')
+          return {
+            status: 'ok',
+            details: {
+              client: this.knex.client?.config?.client ?? 'unknown'
+            }
+          }
+        }
+      },
+      {
+        name: 'mongo',
+        scope: 'ready',
+        critical: true,
+        handler: async () => {
+          if (typeof this.mongoDb === 'undefined') {
+            throw new Error('MongoDB is not configured')
+          }
+
+          await this.mongoDb.command({ ping: 1 })
+          return {
+            status: 'ok',
+            details: {
+              database: this.mongoDb.databaseName
+            }
+          }
+        }
+      }
+    ]
+
+    for (const check of this.healthChecks) {
+      definitions.push({
+        name: check.name,
+        scope: check.scope ?? 'ready',
+        critical: check.critical ?? false,
+        handler: check.handler
+      })
+    }
+
+    const filteredDefinitions = definitions.filter((definition) => {
+      if (mode === 'full') {
+        return true
+      }
+
+      return definition.scope === mode
+    })
+
+    const checks = await Promise.all(filteredDefinitions.map(async definition => await this.runHealthCheck(definition)))
+    const liveChecks = checks.filter(check => check.scope === 'live')
+    const readyChecks = checks.filter(check => check.scope === 'ready')
+    const live = liveChecks.every(check => !check.critical || check.status === 'ok')
+    const ready = readyChecks.every(check => !check.critical || check.status === 'ok')
+
+    let status: HealthStatus = 'ok'
+    if (!live || !ready || checks.some(check => check.critical && check.status === 'error')) {
+      status = 'error'
+    } else if (checks.some(check => check.status !== 'ok')) {
+      status = 'degraded'
+    }
+
+    const context = typeof this.healthConfig.contextProvider === 'function'
+      ? await this.healthConfig.contextProvider()
+      : undefined
+
+    const report: HealthReport = {
+      status,
+      live,
+      ready,
+      service: {
+        name: this.name,
+        advertisableFQDN: this.advertisableFQDN,
+        port: this.port,
+        network: this.network,
+        startedAt: this.startTime?.toISOString(),
+        uptimeMs: typeof this.startTime === 'undefined' ? 0 : Date.now() - this.startTime.getTime(),
+        topicManagerCount: Object.keys(this.managers).length,
+        lookupServiceCount: Object.keys(this.services).length
+      },
+      checks: this.healthConfig.includeDetails
+        ? checks
+        : checks.map(({ details, ...check }) => check),
+      context
+    }
+
+    return report
+  }
+
   /**
    * Starts the Express server.
    * Sets up routes and begins listening on the configured port.
@@ -726,9 +975,41 @@ export default class OverlayExpress {
       }))
     })
 
-    // Serve a health check endpoint
+    // Serve health check endpoints
+    this.app.get('/health/live', (_, res) => {
+      ; (async () => {
+        const report = await this.collectHealthReport('live')
+        return res.status(report.live ? 200 : 503).json(report)
+      })().catch((error) => {
+        res.status(500).json({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unexpected error'
+        })
+      })
+    })
+
+    this.app.get('/health/ready', (_, res) => {
+      ; (async () => {
+        const report = await this.collectHealthReport('ready')
+        return res.status(report.ready ? 200 : 503).json(report)
+      })().catch((error) => {
+        res.status(500).json({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unexpected error'
+        })
+      })
+    })
+
     this.app.get('/health', (_, res) => {
-      res.status(200).json({ status: 'ok' })
+      ; (async () => {
+        const report = await this.collectHealthReport('full')
+        return res.status(report.ready ? 200 : 503).json(report)
+      })().catch((error) => {
+        res.status(500).json({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unexpected error'
+        })
+      })
     })
 
     // List hosted topic managers and lookup services
@@ -1587,6 +1868,7 @@ export default class OverlayExpress {
 
     // Start listening on the configured port
     this.app.listen(this.port, () => {
+      this.isListening = true
       this.logger.log(chalk.green.bold(`${this.name} is ready and listening on local port ${this.port}`))
     })
   }
