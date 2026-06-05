@@ -30,6 +30,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { JanitorService, type JanitorReport } from './JanitorService.js'
 import { BanService } from './BanService.js'
 import { BanAwareLookupWrapper } from './BanAwareLookupWrapper.js'
+import { BanAwareTopicManager } from './BanAwareTopicManager.js'
 import { Wallet, WalletSigner, WalletStorageManager, Services } from '@bsv/wallet-toolbox-client'
 import { createAuthMiddleware, type AuthRequest } from '@bsv/auth-express-middleware'
 
@@ -499,9 +500,9 @@ export default class OverlayExpress {
    * By default, auto-configures SHIP and SLAP unless autoConfigureShipSlap = false
    * Then it merges in any advanced engine config from `this.engineConfig`.
    *
-   * When a BanService is available (from configureMongo), SHIP and SLAP lookup
-   * services are automatically wrapped with BanAwareLookupWrapper to prevent
-   * GASP from re-syncing banned tokens.
+   * When a BanService is available (from configureMongo), SHIP and SLAP topic
+   * managers and lookup services are automatically wrapped to prevent banned
+   * advertisements from being retained or re-synced.
    *
    * @param autoConfigureShipSlap - Whether to auto-configure SHIP and SLAP services (default: true)
    */
@@ -520,9 +521,28 @@ export default class OverlayExpress {
       ))
     }
 
-    // Wrap SHIP/SLAP lookup services with ban-aware wrappers if BanService is available.
-    // This prevents GASP from re-syncing tokens whose domains or outpoints have been banned.
+    // Wrap SHIP/SLAP topic managers and lookup services with ban-aware wrappers if
+    // BanService is available. Topic wrapping prevents primary storage retention;
+    // lookup wrapping protects service-specific storage notifications.
     if (this.banService !== undefined) {
+      if (this.managers.tm_ship !== undefined) {
+        this.managers.tm_ship = new BanAwareTopicManager(
+          this.managers.tm_ship,
+          this.banService,
+          'SHIP',
+          this.logger
+        )
+        this.logger.log(chalk.blue('SHIP topic manager wrapped with ban-aware filter.'))
+      }
+      if (this.managers.tm_slap !== undefined) {
+        this.managers.tm_slap = new BanAwareTopicManager(
+          this.managers.tm_slap,
+          this.banService,
+          'SLAP',
+          this.logger
+        )
+        this.logger.log(chalk.blue('SLAP topic manager wrapped with ban-aware filter.'))
+      }
       if (this.services.ls_ship !== undefined) {
         this.services.ls_ship = new BanAwareLookupWrapper(
           this.services.ls_ship,
