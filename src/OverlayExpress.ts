@@ -31,6 +31,7 @@ import { JanitorService, type JanitorReport } from './JanitorService.js'
 import { BanService } from './BanService.js'
 import { BanAwareLookupWrapper } from './BanAwareLookupWrapper.js'
 import { BanAwareTopicManager } from './BanAwareTopicManager.js'
+import { BanAwareSHIPStorage, BanAwareSLAPStorage } from './BanAwareDiscoveryStorage.js'
 import { Wallet, WalletSigner, WalletStorageManager, Services } from '@bsv/wallet-toolbox-client'
 import { createAuthMiddleware, type AuthRequest } from '@bsv/auth-express-middleware'
 
@@ -513,12 +514,20 @@ export default class OverlayExpress {
       // Auto-configure SHIP and SLAP services
       this.configureTopicManager('tm_ship', new DiscoveryServices.SHIPTopicManager())
       this.configureTopicManager('tm_slap', new DiscoveryServices.SLAPTopicManager())
-      this.configureLookupServiceWithMongo('ls_ship', (db) => new DiscoveryServices.SHIPLookupService(
-        new DiscoveryServices.SHIPStorage(db)
-      ))
-      this.configureLookupServiceWithMongo('ls_slap', (db) => new DiscoveryServices.SLAPLookupService(
-        new DiscoveryServices.SLAPStorage(db)
-      ))
+      this.configureLookupServiceWithMongo('ls_ship', (db) => {
+        const storage = new DiscoveryServices.SHIPStorage(db)
+        const storageForLookup = this.banService !== undefined
+          ? new BanAwareSHIPStorage(storage, this.banService, this.logger)
+          : storage
+        return new DiscoveryServices.SHIPLookupService(storageForLookup as any)
+      })
+      this.configureLookupServiceWithMongo('ls_slap', (db) => {
+        const storage = new DiscoveryServices.SLAPStorage(db)
+        const storageForLookup = this.banService !== undefined
+          ? new BanAwareSLAPStorage(storage, this.banService, this.logger)
+          : storage
+        return new DiscoveryServices.SLAPLookupService(storageForLookup as any)
+      })
     }
 
     // Wrap SHIP/SLAP topic managers and lookup services with ban-aware wrappers if
